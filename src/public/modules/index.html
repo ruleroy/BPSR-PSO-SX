@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8" />
+    <title>Module Optimizer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+               img-src 'self' data:;
+               style-src 'self';
+               script-src 'self';
+               connect-src 'self' ws: wss:;">
+    <link rel="stylesheet" href="../details/details.css" />
+    <link rel="stylesheet" href="./css/modules.css" />
+</head>
+<body>
+    <main class="spell-window" id="windowRoot">
+        <header class="popup-header">
+            <h1>Module Optimizer</h1>
+            <div class="popup-actions">
+                <button class="seg-btn" id="btnOptimize">Optimize</button>
+                <button class="close-btn" type="button" id="btnClose" aria-label="Close">Close</button>
+            </div>
+        </header>
+
+        <section class="popup-body">
+            <div class="modules-layout">
+                <aside class="modules-filter-wrap" aria-label="Filters">
+                    <div class="filter-section">
+                        <h3>Category</h3>
+                        <div class="seg" role="group">
+                            <button class="seg-btn active" data-category="ALL">All</button>
+                            <button class="seg-btn" data-category="ATTACK">Attack</button>
+                            <button class="seg-btn" data-category="GUARDIAN">Guardian</button>
+                            <button class="seg-btn" data-category="SUPPORT">Support</button>
+                        </div>
+                    </div>
+
+                    <div class="filter-section">
+                        <h3>Sort Mode</h3>
+                        <div class="seg" role="group">
+                            <button class="seg-btn active" data-sort="ByTotalAttr">By Attributes</button>
+                            <button class="seg-btn" data-sort="ByScore">By Score</button>
+                        </div>
+                    </div>
+
+                    <div class="filter-section">
+                        <h3>Priority Attributes</h3>
+                        <div id="priorityAttrsList" class="attr-checkboxes"></div>
+                    </div>
+
+                    <div class="filter-section">
+                        <h3>Desired Levels</h3>
+                        <div id="desiredLevelsList" class="attr-levels"></div>
+                    </div>
+                </aside>
+
+                <section class="modules-results-wrap" aria-label="Results">
+                    <div id="moduleInfo" class="module-info">
+                        <p id="moduleCount">No modules loaded</p>
+                    </div>
+
+                    <div id="resultsContainer" class="results-container">
+                        <!-- Cards will be inserted here -->
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <footer class="popup-footer">
+            <span id="footerInfo">—</span>
+        </footer>
+    </main>
+
+    <noscript>JavaScript must be enabled.</noscript>
+    <script src="./js/modules.js" defer></script>
+</body>
+</html>
+

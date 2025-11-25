@@ -204,13 +204,14 @@
         opacity: /** @type {HTMLInputElement} */ ($("#opacitySlider")),
         serverStatus: $("#serverStatus"),
         tabButtons: $$(".tab-button"),
-        allButtons: [$("#clearButton"), $("#pauseButton"), $("#helpButton"), $("#settingsButton"), $("#closeButton"), $("#btnOpenSessions")],
+        allButtons: [$("#clearButton"), $("#pauseButton"), $("#helpButton"), $("#settingsButton"), $("#closeButton"), $("#btnOpenSessions"), $("#btnOpenModules")],
         popup: {
             container: $("#spellPopup"),
             title: $("#popupTitle"),
             list: $("#spellList"),
         },
         sessionsBtn: $("#btnOpenSessions"),
+        modulesBtn: $("#btnOpenModules"),
     };
 
     function setBackgroundOpacity(v) {
@@ -810,6 +811,76 @@
     document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("btnOpenSessions")?.addEventListener("click", () => {
             SessionsOverlay.open();
+        });
+    });
+
+    // === Fenêtre "Module Optimizer" ===
+    const ModulesOverlay = (() => {
+        let win = null;
+        let watchdog = null;
+
+        function open() {
+            // Get current user ID (first user in the list)
+            const userIds = Object.keys(State.users);
+            if (userIds.length === 0) {
+                alert('No user data available. Please wait for game data to load.');
+                return;
+            }
+
+            const currentUserId = parseInt(userIds[0], 10);
+            if (isNaN(currentUserId)) {
+                alert('Invalid user ID');
+                return;
+            }
+
+            const url = "./modules/index.html";
+            const NAME = "ModulesWindow";
+
+            if (!win || win.closed) {
+                win = window.open(
+                    url,
+                    NAME,
+                    "popup,width=1400,height=900,menubar=0,toolbar=0,location=0,status=0,resizable=1"
+                );
+                if (watchdog) clearInterval(watchdog);
+                watchdog = setInterval(() => {
+                    if (!win || win.closed) { win = null; clearInterval(watchdog); watchdog = null; }
+                }, 1000);
+            }
+
+            // Bring to front
+            try { window.focus(); } catch { }
+            try { win?.focus?.(); } catch { }
+            setTimeout(() => { try { win?.focus?.(); } catch { } }, 0);
+            try { window.electronAPI?.focusChildWindow?.(NAME); } catch { }
+
+            // Send user ID to the module optimizer window
+            const sendUserId = () => {
+                if (!win || win.closed) return;
+                try {
+                    win.postMessage({ type: 'module-optimize', userId: currentUserId }, '*');
+                } catch {
+                    setTimeout(sendUserId, 200);
+                }
+            };
+
+            // Wait for window to be ready
+            window.addEventListener('message', (ev) => {
+                if (ev.data?.type === 'module-optimizer-ready' && ev.source === win) {
+                    sendUserId();
+                }
+            });
+
+            // Fallback: send after a delay
+            setTimeout(sendUserId, 500);
+        }
+
+        return { open };
+    })();
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("btnOpenModules")?.addEventListener("click", () => {
+            ModulesOverlay.open();
         });
     });
 
