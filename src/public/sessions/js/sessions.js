@@ -339,6 +339,86 @@
             .slice(0, 3);
     }
 
+    function getAllSpellsFromPlayer(p) {
+        const toNum = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        };
+        const entry = (id, name, val, kind) => ({
+            id,
+            name: name || id,
+            val: toNum(val),
+            kind,
+        });
+
+        // Try to get full skills object first (most complete)
+        const skills = p?.skills || p?.snapshot?.skills || p?.skillsByUser || null;
+        if (skills && typeof skills === "object") {
+            const allFromSkills = Object.entries(skills)
+                .map(([id, s]) => {
+                    const dmg = toNum(s?.totalDamage ?? s?.total_damage);
+                    const heal = toNum(s?.totalHealing ?? s?.total_healing);
+                    const val = Math.max(dmg, heal);
+                    const kind = heal >= dmg ? "HPS" : "DPS";
+                    return entry(id, s?.displayName || s?.name || id, val, kind);
+                })
+                .filter((e) => e.val > 0)
+                .sort((a, b) => b.val - a.val);
+            if (allFromSkills.length > 0) return allFromSkills;
+        }
+
+        // Combine topDamageSpells and topHealSpells (deduplicate by id)
+        const spellMap = new Map();
+        
+        // Add damage spells
+        if (Array.isArray(p?.topDamageSpells)) {
+            p.topDamageSpells.forEach((s) => {
+                const val = toNum(s.damage);
+                if (val > 0) {
+                    const existing = spellMap.get(s.id);
+                    if (!existing || existing.val < val) {
+                        spellMap.set(s.id, entry(s.id, s.name, val, "DPS"));
+                    }
+                }
+            });
+        }
+        
+        // Add heal spells
+        if (Array.isArray(p?.topHealSpells)) {
+            p.topHealSpells.forEach((s) => {
+                const val = toNum(s.heal);
+                if (val > 0) {
+                    const existing = spellMap.get(s.id);
+                    if (!existing || existing.val < val) {
+                        spellMap.set(s.id, entry(s.id, s.name, val, "HPS"));
+                    }
+                }
+            });
+        }
+        
+        // Also add from topAllSpells if available
+        if (Array.isArray(p?.topAllSpells)) {
+            p.topAllSpells.forEach((s) => {
+                const val = s.value != null
+                    ? toNum(s.value)
+                    : Math.max(toNum(s.damage), toNum(s.heal));
+                if (val > 0) {
+                    const k = String(s.kind || "").toLowerCase();
+                    const kind = k.startsWith("heal") ? "HPS" : "DPS";
+                    const existing = spellMap.get(s.id);
+                    if (!existing || existing.val < val) {
+                        spellMap.set(s.id, entry(s.id, s.name, val, kind));
+                    }
+                }
+            });
+        }
+
+        const combined = Array.from(spellMap.values())
+            .sort((a, b) => b.val - a.val);
+        
+        return combined;
+    }
+
     async function renderDetail(id) {
         if (!id) return;
 
@@ -415,6 +495,19 @@
   <span class="spell-val">—</span>
 </li>`;
 
+            const allSpellsArray = getAllSpellsFromPlayer(p);
+            const shouldShowButton = topArray.length > 0 || allSpellsArray.length > 0;
+            const allSpellsHtml = allSpellsArray.length
+                ? allSpellsArray.map(s => `
+<li class="spell-line">
+  <span class="spell-kind ${s.kind === "DPS" ? "is-dps" : "is-hps"}">
+    ${s.kind === "DPS" ? "DMG" : "HEAL"}
+  </span>
+  <span class="spell-name" title="${esc(s.name)}">${esc(s.name)}</span>
+  <span class="spell-val" title="${fmt(s.val)}">${short(s.val)}</span>
+</li>`).join("")
+                : topHtml; // Fallback to top 3 if no all skills available
+
             const dmgRatio = (p?.totals?.damage || 0) / maxDamage;
             const healRatio = (p?.totals?.heal || 0) / maxHeal;
 
@@ -449,10 +542,24 @@
   </div>
 
   <div class="pc-tops">
-    <div class="tops-title">Top 3 Spells</div>
+    <div class="tops-title-row">
+      <div class="tops-title">Top 3 Spells</div>
+      ${shouldShowButton ? `<button class="btn-expand-skills" type="button" aria-label="Show all skills" title="Show all skills${allSpellsArray.length > 0 ? ` (${allSpellsArray.length} total)` : ""}">
+        <svg class="expand-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M7 10l5 5 5-5z" fill="currentColor"/>
+        </svg>
+      </button>` : ""}
+    </div>
     <ol class="tops-list">
       ${topHtml}
     </ol>
+    ${shouldShowButton ? `
+    <div class="all-skills-container" style="display: none;">
+      <div class="tops-title">All Skills${allSpellsArray.length > 0 ? ` (${allSpellsArray.length})` : ""}</div>
+      <ol class="tops-list all-skills-list">
+        ${allSpellsHtml}
+      </ol>
+    </div>` : ""}
   </div>
 </article>`;
         }).join("");
@@ -461,6 +568,43 @@
         requestAnimationFrame(() => {
             grid.innerHTML = cardsHTML;
             grid.setAttribute("data-session-id", id);
+            
+            // Attach expand/collapse handlers
+            grid.querySelectorAll(".btn-expand-skills").forEach((btn) => {
+                // Ensure initial state is collapsed
+                const card = btn.closest(".player-card");
+                if (card) {
+                    const container = card.querySelector(".all-skills-container");
+                    const icon = btn.querySelector(".expand-icon");
+                    if (container && icon) {
+                        container.style.display = "none";
+                        icon.style.transform = "rotate(0deg)";
+                    }
+                }
+                
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const card = btn.closest(".player-card");
+                    if (!card) return;
+                    const container = card.querySelector(".all-skills-container");
+                    const icon = btn.querySelector(".expand-icon");
+                    if (!container || !icon) return;
+                    
+                    const isExpanded = container.style.display !== "none";
+                    if (isExpanded) {
+                        container.style.display = "none";
+                        icon.style.transform = "rotate(0deg)";
+                        btn.setAttribute("aria-label", "Show all skills");
+                        btn.setAttribute("title", "Show all skills");
+                    } else {
+                        container.style.display = "block";
+                        icon.style.transform = "rotate(180deg)";
+                        btn.setAttribute("aria-label", "Hide all skills");
+                        btn.setAttribute("title", "Hide all skills");
+                    }
+                });
+            });
+            
             requestAnimationFrame(() => {
                 grid.style.opacity = "1";
             });

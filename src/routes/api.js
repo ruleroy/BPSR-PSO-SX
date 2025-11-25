@@ -6,6 +6,8 @@ import logger from '../services/Logger.js';
 import userDataManager from '../services/UserDataManager.js';
 import socket from '../services/Socket.js';
 import * as Sessions from '../services/Sessions.js';
+import moduleManager from '../services/ModuleManager.js';
+import ModuleOptimizer from '../services/ModuleOptimizer.js';
 import mapNames from '../tables/map_names.json' with { type: 'json' };
 
 /* -------------------------------------------------------------------------- */
@@ -349,7 +351,64 @@ export function createApiRouter(isPausedInit, SETTINGS_PATH, LOGS_DIR) {
         })
     );
 
-    /* ------------------------ Middleware d’erreur JSON ----------------------- */
+    // ---------------------------- MODULES ------------------------------------
+
+    router.get('/modules/:userId', (req, res) => {
+        try {
+            const userId = parseInt(req.params.userId, 10);
+            if (isNaN(userId)) {
+                return res.status(400).json(JSON_ERR('Invalid user ID'));
+            }
+
+            const modules = moduleManager.getModules(userId);
+            res.json(JSON_OK({ data: modules }));
+        } catch (e) {
+            logger.error('[GET /api/modules/:userId] error:', e);
+            res.status(500).json(JSON_ERR(e));
+        }
+    });
+
+    router.post('/modules/optimize', asyncHandler(async (req, res) => {
+        const { userId, category = 'ALL', priorityAttrs = [], desiredLevels = {}, sortMode = 'ByTotalAttr', topN = 40 } = req.body;
+
+        if (!userId) {
+            return res.status(400).json(JSON_ERR('userId is required'));
+        }
+
+        const modules = moduleManager.getModules(userId);
+        if (modules.length < 4) {
+            return res.json(JSON_OK({ data: [], msg: 'Not enough modules (need at least 4)' }));
+        }
+
+        // Build module category map from ModuleManager
+        const moduleCategoryMap = {};
+        for (const m of modules) {
+            moduleCategoryMap[m.configId] = m.category;
+        }
+
+        // Create optimizer instance with all required config
+        const optimizer = new ModuleOptimizer({
+            moduleCategoryMap,
+            priorityAttrs,
+            desiredLevels,
+            attrThresholds: [1, 4, 8, 12, 16, 20],
+            basicAttrPowerMap: {
+                1: 7, 2: 14, 3: 29, 4: 44, 5: 167, 6: 254,
+            },
+            specialAttrPowerMap: {
+                1: 14, 2: 29, 3: 59, 4: 89, 5: 298, 6: 448,
+            },
+            basicAttrIds: new Set([1110, 1111, 1112, 1113, 1114, 1205, 1206, 1307, 1308, 1407, 1408, 1409, 1410]),
+            specialAttrIds: new Set([2104, 2105, 2204, 2205, 2304, 2404, 2405, 2406]),
+        });
+
+        // Run optimization
+        const solutions = optimizer.optimizeModules(modules, category, topN, sortMode);
+
+        res.json(JSON_OK({ data: solutions }));
+    }));
+
+    /* ------------------------ Middleware d'erreur JSON ----------------------- */
     // eslint-disable-next-line no-unused-vars
     router.use((err, _req, res, _next) => {
         logger.error('[API ERROR]', err);

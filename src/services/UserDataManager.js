@@ -279,7 +279,7 @@ class UserDataManager {
         return {
             uid: user.uid,
             name: user.name,
-            profession: user.profession + (user.subProfession ? `-${user.subProfession}` : ''),
+            profession: user.profession + (user.subProfession ? ` ${user.subProfession}` : ''),
             skills: user.getSkillSummary(),
             attr: user.attr,
         };
@@ -374,7 +374,7 @@ class UserDataManager {
                 const userData = {
                     uid: user.uid,
                     name: user.name,
-                    profession: user.profession + (user.subProfession ? `-${user.subProfession}` : ''),
+                    profession: user.profession + (user.subProfession ? ` ${user.subProfession}` : ''),
                     subProfession: user.subProfession,
                     skills: user.getSkillSummary(),
                     attr: user.attr,
@@ -488,6 +488,7 @@ class UserDataManager {
             topDamageSpells,
             topHealSpells,
             topAllSpells,
+            skills: skills, // Include full skills object for "show all skills" feature
             attr: u.attr || {},
         };
     }

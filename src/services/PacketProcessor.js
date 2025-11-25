@@ -20,6 +20,9 @@ const BinaryReader = BinaryReaderNS?.BinaryReader ?? BinaryReaderNS?.default ?? 
 import * as udmNS from './UserDataManager.js';
 const userDataManager = udmNS?.default ?? udmNS;
 
+import * as mmNS from './ModuleManager.js';
+const moduleManager = mmNS?.default ?? mmNS;
+
 import * as pbRaw from '../algo/blueprotobuf.js';
 const pb = pbRaw?.default ?? pbRaw;
 
@@ -510,6 +513,9 @@ export class PacketProcessor {
             if (prof?.CurProfessionId) {
                 userDataManager.setProfession(playerUid, getProfessionNameFromId(prof.CurProfessionId));
             }
+
+            // ---- EXTRACT MODULE DATA ----
+            moduleManager.extractModulesFromVData(playerUid, vData);
         } catch (err) {
             try { fs.writeFileSync('./SyncContainerData.dat', payload); } catch { }
             logger.warn(
