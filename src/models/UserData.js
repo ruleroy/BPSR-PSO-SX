@@ -61,13 +61,14 @@ export class UserData {
         this.fightPoint = 0;  // 总评分
         this.subProfession = '';
         this.subProfessionUsage = new Map(); // Track usage count per subclass
+        this.subProfessionDamage = new Map(); // Track total damage per subclass
         this.attr = {};
         this.lastUpdateTime = Date.now();
     }
 
     _touch() { this.lastUpdateTime = Date.now(); }
 
-    updateSubProfession(skillId) {
+    updateSubProfession(skillId, damage = 0) {
         const subProfession = getSubProfessionBySkillId(skillId);
         if (!subProfession) return;
 
@@ -78,6 +79,10 @@ export class UserData {
         // Increment usage count for this subclass
         const currentCount = this.subProfessionUsage.get(subProfession) || 0;
         this.subProfessionUsage.set(subProfession, currentCount + 1);
+
+        // Track damage contribution for this subclass
+        const currentDamage = this.subProfessionDamage.get(subProfession) || 0;
+        this.subProfessionDamage.set(subProfession, currentDamage + damage);
 
         // If no subclass is set yet, set it immediately
         if (!this.subProfession) {
@@ -90,12 +95,17 @@ export class UserData {
             return;
         }
 
-        // Only update if the new subclass has significantly more usage (2x threshold)
-        // This prevents occasional misidentifications from overwriting the correct subclass
+        // Use damage contribution as primary factor, with usage count as tiebreaker
+        // This ensures the subclass that contributes most damage is selected
+        const currentSubDamage = this.subProfessionDamage.get(this.subProfession) || 0;
+        const newSubDamage = this.subProfessionDamage.get(subProfession);
         const currentSubCount = this.subProfessionUsage.get(this.subProfession) || 0;
-        const newSubCount = this.subProfessionUsage.get(subProfession); // Already incremented above
-        
-        if (newSubCount >= currentSubCount * 2) {
+        const newSubCount = this.subProfessionUsage.get(subProfession);
+
+        // Switch if new subclass has significantly more damage (1.5x threshold)
+        // OR if damage is similar but usage is 2x more
+        if (newSubDamage >= currentSubDamage * 1.5 || 
+            (newSubDamage >= currentSubDamage * 0.8 && newSubCount >= currentSubCount * 2)) {
             this.setSubProfession(subProfession);
         }
     }
@@ -111,7 +121,7 @@ export class UserData {
         this.skillUsage.get(skillId).addRecord(damage, isCrit, isCauseLucky, hpLessenValue);
         this.skillUsage.get(skillId).realtimeWindow.length = 0;
 
-        this.updateSubProfession(skillId);
+        this.updateSubProfession(skillId, damage);
     }
 
     /** 添加治疗记录 */
@@ -128,8 +138,8 @@ export class UserData {
         this.skillUsage.get(healSkillId).addRecord(healing, isCrit, isCauseLucky);
         this.skillUsage.get(healSkillId).realtimeWindow.length = 0;
 
-        // 子职业识别仍需原始 skillId
-        this.updateSubProfession(skillId);
+        // 子职业识别仍需原始 skillId (healing doesn't contribute to subclass damage)
+        this.updateSubProfession(skillId, 0);
     }
 
     /** 添加承伤记录 */
@@ -226,6 +236,7 @@ export class UserData {
         if (profession !== this.profession) {
             this.setSubProfession('');
             this.subProfessionUsage.clear();
+            this.subProfessionDamage.clear();
         }
         this.profession = profession;
     }
@@ -256,6 +267,7 @@ export class UserData {
         this.takenDamage = 0;
         this.skillUsage.clear();
         this.subProfessionUsage.clear();
+        this.subProfessionDamage.clear();
         this.fightPoint = 0;
         this._touch();
     }

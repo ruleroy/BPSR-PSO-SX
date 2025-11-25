@@ -246,6 +246,7 @@
     grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
     gap: var(--gap-4);
     align-content: start;
+    align-items: start; /* Prevent cards from stretching to match tallest card in row */
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
@@ -574,6 +575,13 @@
     gap: var(--gap-2);
 }
 
+.tops-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap-2);
+}
+
 .tops-title {
     font-size: var(--fs-10);
     letter-spacing: .06em;
@@ -581,6 +589,65 @@
     opacity: .9;
     font-weight: 800;
     margin-top: 0;
+}
+
+.btn-expand-skills {
+    appearance: none;
+    border: 0;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.15s ease, background 0.15s ease, transform 0.06s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    min-width: 24px;
+    min-height: 24px;
+}
+
+.btn-expand-skills:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.btn-expand-skills:active {
+    transform: scale(0.95);
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.btn-expand-skills:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.4);
+    outline-offset: 2px;
+}
+
+.expand-icon {
+    transition: transform 0.2s ease;
+    transform: rotate(0deg);
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
+.all-skills-container {
+    margin-top: var(--gap-3);
+    animation: fadeIn 0.2s ease;
+    display: none; /* Default: collapsed */
+}
+
+.all-skills-container[style*="display: block"] {
+    display: block !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 .tops-list {
