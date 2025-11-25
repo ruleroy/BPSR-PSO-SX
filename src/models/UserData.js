@@ -60,6 +60,7 @@ export class UserData {
         this.skillUsage = new Map(); // 技能使用情况
         this.fightPoint = 0;  // 总评分
         this.subProfession = '';
+        this.subProfessionUsage = new Map(); // Track usage count per subclass
         this.attr = {};
         this.lastUpdateTime = Date.now();
     }
@@ -68,7 +69,33 @@ export class UserData {
 
     updateSubProfession(skillId) {
         const subProfession = getSubProfessionBySkillId(skillId);
-        if (subProfession && this.subProfession !== subProfession) {
+        if (!subProfession) return;
+
+        // Only set subclass if profession is already known (not the default "...")
+        // This prevents subclass from being set before profession is detected
+        if (this.profession === '...' || !this.profession) return;
+
+        // Increment usage count for this subclass
+        const currentCount = this.subProfessionUsage.get(subProfession) || 0;
+        this.subProfessionUsage.set(subProfession, currentCount + 1);
+
+        // If no subclass is set yet, set it immediately
+        if (!this.subProfession) {
+            this.setSubProfession(subProfession);
+            return;
+        }
+
+        // If it's the same subclass, no need to change
+        if (this.subProfession === subProfession) {
+            return;
+        }
+
+        // Only update if the new subclass has significantly more usage (2x threshold)
+        // This prevents occasional misidentifications from overwriting the correct subclass
+        const currentSubCount = this.subProfessionUsage.get(this.subProfession) || 0;
+        const newSubCount = this.subProfessionUsage.get(subProfession); // Already incremented above
+        
+        if (newSubCount >= currentSubCount * 2) {
             this.setSubProfession(subProfession);
         }
     }
@@ -196,7 +223,10 @@ export class UserData {
 
     setProfession(profession) {
         this._touch();
-        if (profession !== this.profession) this.setSubProfession('');
+        if (profession !== this.profession) {
+            this.setSubProfession('');
+            this.subProfessionUsage.clear();
+        }
         this.profession = profession;
     }
 
@@ -225,6 +255,7 @@ export class UserData {
         this.healingStats.reset();
         this.takenDamage = 0;
         this.skillUsage.clear();
+        this.subProfessionUsage.clear();
         this.fightPoint = 0;
         this._touch();
     }
