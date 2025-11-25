@@ -1,7 +1,7 @@
 ﻿(() => {
     "use strict";
 
-    /* ========== Helpers locaux (autonomes) ========== */
+    /* ========== Local helpers (autonomous) ========== */
     const toStr = (v) => String(v ?? "");
     const toNum = (v, d = 0) => {
         const n = Number(v);
@@ -27,7 +27,7 @@
         return `${h ? `${h}h ` : ""}${m}m ${sec}s`;
     };
 
-    /* ========== Classe → icône (copié/isolé pour autonomie) ========== */
+    /* ========== Class → icon (copied/isolated for autonomy) ========== */
     const CLASS_ICON_MAP = Object.freeze({
         wind_knight: "/assets/classes/wind_knight.webp",
         stormblade: "/assets/classes/stormblade.webp",
@@ -101,14 +101,14 @@
         });
     }
 
-    /* ========== Génération d'image ========== */
+    /* ========== Image generation ========== */
     async function createShareImageFromSession(sess, options = {}) {
         const PAD = 32, W = 1200, ROW_H = 112, HEADER_H = 140, GAP = 14;
 
         const players = (sess?.snapshot?.players ?? []).slice();
-        if (!players.length) throw new Error("Aucune donnée joueur");
+        if (!players.length) throw new Error("No player data");
 
-        // Ordre d'affichage (damage décroissant par défaut)
+        // Display order (damage decreasing by default)
         const sortKey = {
             damage: (p) => p?.totals?.damage || 0,
             healing: (p) => p?.totals?.heal || 0,
@@ -140,7 +140,7 @@
         drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 16);
         ctx.fillStyle = "#161A2B"; ctx.fill();
 
-        // Titre + métas
+        // Title + metadata
         const titleFont = "700 32px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
         const metaFont = "500 18px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
         const monoFont = "600 18px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
@@ -151,19 +151,20 @@
         const dt = sess?.startedAt ? DF_INTL.format(new Date(sess.startedAt)) : "—";
         const dur = msToClock(sess?.durationMs ?? 0);
         const sz = toNum(sess?.partySize);
-        const meta = `${dt}   •   Durée: ${dur}   •   Joueurs: ${sz}`;
+        const meta = `${dt}   •   Duration: ${dur}   •   Players: ${sz}`;
         text(ctx, meta, cardX + 28, titleY + 34, metaFont, "#A6ADCE", "left", "alphabetic");
 
-        // Lignes joueurs
+        // Player rows
         let y = cardY + HEADER_H;
         const nameFont = "700 22px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
         const subFont = "500 14px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-        const rowPad = 18, avatarSize = 72, barWidth = 420, barHeight = 10;
+        const rowPad = 18, avatarSize = 72;
+        const barWidth = 360, barHeight = 10;
 
         players.forEach((p, i) => {
             const rowX = cardX + 16, rowY = y, rowW = cardW - 32, rowH = ROW_H;
 
-            // fond ligne
+            // row background
             drawRoundedRect(ctx, rowX, rowY, rowW, rowH, 12);
             ctx.fillStyle = i % 2 ? "#1B2036" : "#171C30"; ctx.fill();
 
@@ -172,7 +173,7 @@
             const dmgTotal = p?.totals?.damage || 0;
             const healTotal = p?.totals?.heal || 0;
 
-            // icône
+            // icon
             const ix = rowX + rowPad, iy = rowY + (rowH - avatarSize) / 2;
             ctx.save();
             drawRoundedRect(ctx, ix, iy, avatarSize, avatarSize, 12);
@@ -180,14 +181,14 @@
             ctx.drawImage(icon, ix, iy, avatarSize, avatarSize);
             ctx.restore();
 
-            // nom + classe
+            // name + class
             const leftColX = ix + avatarSize + 16;
             const nameY = rowY + 32;
             text(ctx, toStr(p.name || "—"), leftColX, nameY, nameFont, "#FFFFFF");
             text(ctx, toStr(p.class ?? p.className ?? p.playerClass ?? p.profession ?? p.cls ?? "—"),
                 leftColX, nameY + 22, subFont, "#A6ADCE");
 
-            // pill rôle
+            // role pill
             const pillText = (p.role || "").toUpperCase() || (role === "heal" ? "HEAL" : "DPS");
             const pillFont = "700 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
             const measure = (() => { const c = document.createElement("canvas").getContext("2d"); c.font = pillFont; return c; })();
@@ -197,8 +198,17 @@
             ctx.fillStyle = role === "heal" ? "#2A9D8F" : "#6C8FF5"; ctx.fill();
             text(ctx, pillText, pillX + pillW / 2, pillY + pillH / 2 + 0.5, pillFont, "#0F1220", "center", "middle");
 
-            // barres
-            const midX = leftColX + 260, midY = rowY + rowPad + 6;
+            // Ability Score column
+            const asColX = leftColX + 200;
+            const ability = p.fightPoint ?? p.fightpoint ?? null;
+            const asValue = ability != null ? fmt(toNum(ability)) : "—";
+            const asFontBig = "700 22px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+            const asFontLbl = "600 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+            text(ctx, asValue, asColX, rowY + 40, asFontBig, "#FFFFFF");
+            text(ctx, "AS", asColX, rowY + 56, asFontLbl, "#A6ADCE");
+
+            // bars
+            const midX = asColX + 100, midY = rowY + rowPad + 6;
             text(ctx, "Damage", midX, midY, subFont, "#A6ADCE");
             bar(ctx, midX, midY + 8, barWidth, barHeight, dmgTotal / maxDamage, "#2A2F4A", "#6C8FF5");
             text(ctx, short(dmgTotal), midX + barWidth + 12, midY + 16, monoFont, "#FFFFFF");
@@ -208,7 +218,7 @@
             bar(ctx, midX, healY + 8, barWidth, barHeight, healTotal / maxHeal, "#2A2F4A", "#2A9D8F");
             text(ctx, short(healTotal), midX + barWidth + 12, healY + 16, monoFont, "#FFFFFF");
 
-            // bloc droite DPS/HPS
+            // right block DPS/HPS
             const rightX = rowX + rowW - 210;
             const statFontBig = "700 22px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
             const statFontLbl = "600 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
@@ -248,27 +258,27 @@
     }
 
     async function shareSessionToClipboard(sess, options = {}) {
-        if (!sess?.snapshot?.players?.length) throw new Error("Rien à partager");
+        if (!sess?.snapshot?.players?.length) throw new Error("Nothing to share");
         const img = await createShareImageFromSession(sess, options);
         const ok = await copyImageToClipboard(img);
         return ok;
     }
 
-    // Variante « par ID » : on délègue le chargement au caller
+    // Variant "by ID": delegate loading to caller
     async function shareById(id, loader, options = {}) {
-        if (!id) throw new Error("Aucune session sélectionnée");
-        if (typeof loader !== "function") throw new Error("Loader manquant");
+        if (!id) throw new Error("No session selected");
+        if (typeof loader !== "function") throw new Error("Loader missing");
         const sess = await loader(id);
         return await shareSessionToClipboard({ ...sess, id }, options);
     }
 
-    // Expose API globale
+    // Expose global API
     window.Share = Object.freeze({
         createShareImageFromSession,
         copyImageToClipboard,
         shareSessionToClipboard,
         shareById,
-        // Utilitaires si besoin ailleurs :
+        // Utilities if needed elsewhere:
         _utils: { fmt, short, msToClock, classIconFor, roleFromPlayer }
     });
 })();

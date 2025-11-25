@@ -216,6 +216,9 @@ class UserDataManager {
     }
 
     setProfession(uid, profession) {
+        // Don't set profession to empty string - only set if we have a valid profession name
+        if (!profession || profession.trim() === '') return;
+        
         const user = this.getUser(uid);
         if (user.profession !== profession) {
             user.setProfession(profession);

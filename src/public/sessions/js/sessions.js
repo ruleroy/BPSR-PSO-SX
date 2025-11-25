@@ -155,10 +155,10 @@
         legacyTbody: $("#sessionTbody"),
     };
 
-    // Sélection multi & détail courant
-    const selectedIds = new Set(); // ids sélectionnés (multi)
-    let anchorId = null;           // point d’ancrage pour Shift
-    let currentDetailId = null;    // id dont on affiche le détail
+    // Multi selection & current detail
+    const selectedIds = new Set(); // selected ids (multi)
+    let anchorId = null;           // anchor point for Shift
+    let currentDetailId = null;    // id whose detail is displayed
     let firstRenderDone = false;
 
     // Abort refs
@@ -176,7 +176,7 @@
             list = await fetchSessions(listAbort.signal);
         } catch (e) {
             console.error(e);
-            els.list.innerHTML = `<li class="sess-item">Erreur de chargement</li>`;
+            els.list.innerHTML = `<li class="sess-item">Loading error</li>`;
             return;
         }
 
@@ -190,7 +190,7 @@
         });
 
         if (!filt.length) {
-            els.list.innerHTML = `<li class="sess-item">Aucune session</li>`;
+            els.list.innerHTML = `<li class="sess-item">No session</li>`;
             if (!preserveDetail) {
                 els.grid.innerHTML = "";
                 els.header.textContent = "—";
@@ -202,7 +202,7 @@
 
         const itemsHTML = filt.map((s) => {
             const name = toStr(s?.name ?? "Run");
-            const kind = /raid/i.test(name) ? "Raid" : (/(donjon|dungeon)/i.test(name) ? "Donjon" : "Run");
+            const kind = /raid/i.test(name) ? "Raid" : (/(donjon|dungeon)/i.test(name) ? "Dungeon" : "Run");
             const started = s.startedAt ? DF_INTL.format(new Date(s.startedAt)) : "—";
             const dur = msToClock(s.durationMs ?? (s.endedAt - s.startedAt));
             const size = toNum(s.partySize);
@@ -224,12 +224,12 @@
         <span class="sep">•</span>
         <span class="m">${esc(dur)}</span>
         <span class="sep">•</span>
-        <span class="m">${esc(size)} joueur${size > 1 ? "s" : ""}</span>
+        <span class="m">${esc(size)} player${size > 1 ? "s" : ""}</span>
       </div>
     </div>
 
     <div class="sess-right">
-      <button class="btn-icon sess-del" title="Supprimer" aria-label="Supprimer" tabindex="-1">
+      <button class="btn-icon sess-del" title="Delete" aria-label="Delete" tabindex="-1">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
           <path d="M6 7h12v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7Zm3-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1h5v2H4V5h5Z" fill="currentColor"/>
         </svg>
@@ -241,18 +241,18 @@
 
         els.list.innerHTML = itemsHTML;
 
-        // Restaure la sélection précédente
+        // Restore previous selection
         const idsInDom = Array.from(els.list.children).map(li => li.getAttribute("data-id"));
-        // Retire les ids disparus
+        // Remove disappeared ids
         for (const id of Array.from(selectedIds)) {
             if (!idsInDom.includes(id)) selectedIds.delete(id);
         }
-        // Ré-applique les classes actives
+        // Re-apply active classes
         for (const li of els.list.children) {
             const id = li.getAttribute("data-id");
             if (selectedIds.has(id)) li.classList.add("active");
         }
-        // Si aucune sélection (premier rendu), sélectionne la première et affiche le détail
+        // If no selection (first render), select the first and display the detail
         if (!firstRenderDone && selectedIds.size === 0 && els.list.firstElementChild) {
             const fid = els.list.firstElementChild.getAttribute("data-id");
             if (fid) {
@@ -267,14 +267,14 @@
         }
 
 
-        // Restaure le scroll
+        // Restore scroll
         els.list.scrollTop = prevScroll;
 
-        // Ne rafraîchis pas le détail pendant l’auto-refresh pour éviter le flash,
-        // sauf si l’item affiché a disparu.
+        // Don't refresh detail during auto-refresh to avoid flash,
+        // except if the displayed item has disappeared.
         if (!preserveDetail) {
             if (currentDetailId && idsInDom.includes(currentDetailId)) {
-                // Optionnel: rafraîchir ici
+                // Optional: refresh here
                 // await renderDetail(currentDetailId);
             } else if (selectedIds.size) {
                 const firstSel = [...selectedIds][0];
@@ -296,7 +296,7 @@
             kind,
         });
 
-        // 1) Source "officielle" : topAllSpells (faire confiance à kind)
+        // 1) Official source: topAllSpells (trust kind)
         if (Array.isArray(p?.topAllSpells) && p.topAllSpells.length) {
             return p.topAllSpells
                 .slice(0, 3)
@@ -312,7 +312,7 @@
                 .filter((e) => e.val > 0);
         }
 
-        // 2) Fallback : mix DMG/HEAL explicite
+        // 2) Fallback: explicit DMG/HEAL mix
         const mix = [
             ...(p?.topDamageSpells || []).map((s) => entry(s.id, s.name, s.damage, "DPS")),
             ...(p?.topHealSpells || []).map((s) => entry(s.id, s.name, s.heal, "HPS")),
@@ -322,7 +322,7 @@
             .slice(0, 3);
         if (mix.length) return mix;
 
-        // 3) Dernier recours : ancien schéma "skills" (tie-break pro-HEAL)
+        // 3) Last resort: old "skills" schema (tie-break pro-HEAL)
         const skills = p?.skills || p?.snapshot?.skills || p?.skillsByUser || null;
         if (!skills || typeof skills !== "object") return [];
 
@@ -356,7 +356,7 @@
         if (switching) {
             grid.style.opacity = "0";
         } else if (!grid.hasChildNodes()) {
-            grid.innerHTML = `<div class="player-card">Chargement…</div>`;
+            grid.innerHTML = `<div class="player-card">Loading…</div>`;
         }
 
         let sess;
@@ -364,19 +364,19 @@
             sess = await fetchSessionDetail(id, detailAbort.signal);
         } catch (e) {
             console.error(e);
-            grid.innerHTML = `<div class="player-card">Erreur de chargement</div>`;
+            grid.innerHTML = `<div class="player-card">Loading error</div>`;
             return;
         }
 
         const { name, startedAt, durationMs, partySize } = sess ?? {};
         els.header.textContent =
-            `${name || "Run"} · Durée: ${msToClock(durationMs)} · Joueurs: ${partySize}`;
+            `${name || "Run"} · Duration: ${msToClock(durationMs)} · Players: ${partySize}`;
 
         const players = (sess?.snapshot?.players ?? []).slice();
         if (!players.length) {
-            grid.innerHTML = `<div class="player-card">Aucune donnée</div>`;
+            grid.innerHTML = `<div class="player-card">No data</div>`;
             els.footer.textContent = `Session #${id}`;
-            if (els.legacyTbody) els.legacyTbody.innerHTML = `<tr><td colspan="5">Aucune donnée</td></tr>`;
+            if (els.legacyTbody) els.legacyTbody.innerHTML = `<tr><td colspan="5">No data</td></tr>`;
             grid.setAttribute("data-session-id", id);
             if (switching) requestAnimationFrame(() => (grid.style.opacity = "1"));
             return;
@@ -457,7 +457,7 @@
 </article>`;
         }).join("");
 
-        // Swap sans flash + fade-in
+        // Swap without flash + fade-in
         requestAnimationFrame(() => {
             grid.innerHTML = cardsHTML;
             grid.setAttribute("data-session-id", id);
@@ -491,7 +491,7 @@
 </tr>`;
             }).join("");
 
-            els.legacyTbody.innerHTML = rows || `<tr><td colspan="5">Aucune donnée</td></tr>`;
+            els.legacyTbody.innerHTML = rows || `<tr><td colspan="5">No data</td></tr>`;
         }
     }
 
@@ -534,7 +534,7 @@
         }
     }
 
-    function showToast(msg = "Copié ✅") {
+    function showToast(msg = "Copied ✅") {
         const t = $("#shareToast");
         if (!t) return;
         t.textContent = msg;
@@ -550,9 +550,9 @@
         try {
             const region = document.querySelector('.sess-detail-wrap') || document.body;
             const grid = document.getElementById('playersGrid');
-            if (!region || !grid) { showToast("Rien à capturer ❌"); return; }
+            if (!region || !grid) { showToast("Nothing to capture ❌"); return; }
 
-            // 1) Trouver l’ancêtre qui scrolle réellement
+            // 1) Find the ancestor that actually scrolls
             const getScrollParent = (el) => {
                 let n = el;
                 while (n && n !== document.body) {
@@ -565,7 +565,7 @@
             };
             const scrollEl = getScrollParent(region);
 
-            // 2) Sauvegarde état/style
+            // 2) Save state/style
             const prev = {
                 scrollTop: scrollEl.scrollTop,
                 region: {
@@ -580,7 +580,7 @@
                 },
             };
 
-            // 3) Désactive sticky le temps de la capture (sinon duplication visuelle)
+            // 3) Disable sticky during capture (otherwise visual duplication)
             const stickyKiller = document.createElement('style');
             stickyKiller.textContent = `
       .sess-detail-wrap * { position: static !important; }
@@ -588,8 +588,8 @@
     `;
             document.head.appendChild(stickyKiller);
 
-            // 4) Déplie: pleine hauteur, plus de scroll (une seule image à capturer)
-            scrollEl.scrollTop = 0; // on remonte pour inclure le début
+            // 4) Unfold: full height, no more scroll (single image to capture)
+            scrollEl.scrollTop = 0; // scroll up to include the beginning
             region.style.height = `${region.scrollHeight}px`;
             region.style.maxHeight = 'none';
             region.style.overflow = 'visible';
@@ -597,10 +597,10 @@
             grid.style.maxHeight = 'none';
             grid.style.overflow = 'visible';
 
-            // Laisse le layout se stabiliser (2 RAF = 1 paint complet assuré)
+            // Let layout stabilize (2 RAF = 1 complete paint guaranteed)
             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-            // 5) Boîte à capturer = toute la zone détail (header + cards)
+            // 5) Capture box = entire detail area (header + cards)
             const r = region.getBoundingClientRect();
             const bounds = {
                 x: Math.round(r.left + window.scrollX),
@@ -609,14 +609,14 @@
                 height: Math.round(r.height),
             };
 
-            // 6) Capture en un seul appel
+            // 6) Capture in a single call
             const dataURL = await window.electronAPI?.captureRect?.(bounds);
-            if (!dataURL) { showToast("Capture impossible ❌"); return; }
+            if (!dataURL) { showToast("Capture failed ❌"); return; }
 
             const ok = await window.electronAPI?.copyImageDataURL?.(dataURL);
-            showToast(ok ? "Aperçu copié ✅" : "Échec de la copie ❌");
+            showToast(ok ? "Preview copied ✅" : "Copy failed ❌");
 
-            // 7) Restaure styles/scroll
+            // 7) Restore styles/scroll
             scrollEl.scrollTop = prev.scrollTop;
             region.style.height = prev.region.height;
             region.style.maxHeight = prev.region.maxHeight;
@@ -627,12 +627,12 @@
             stickyKiller.remove();
         } catch (e) {
             console.error('[shareSessionFullCapture] error:', e);
-            showToast('Erreur de partage ❌');
+            showToast('Sharing error ❌');
         }
     }
 
 
-    // Garde anti multi-clic pour "+ Enregistrer"
+    // Guard against multi-click for "+ Save"
     let isSaving = false;
     async function onSaveClickOnceGuarded() {
         if (isSaving) return;
@@ -640,16 +640,16 @@
 
         const btn = els.saveBtn;
         const prevText = btn?.textContent;
-        if (btn) { btn.disabled = true; btn.textContent = "Enregistrement…"; }
+        if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
 
         try {
             window.opener?.postMessage?.({ type: "save-session" }, window.location.origin);
-            showToast("Sauvegarde demandée…");
+            showToast("Save requested…");
         } catch (e) {
             console.error(e);
-            showToast("Échec enregistrement ❌");
+            showToast("Save failed ❌");
         } finally {
-            if (btn) { btn.disabled = false; btn.textContent = prevText ?? "+ Enregistrer"; }
+            if (btn) { btn.disabled = false; btn.textContent = prevText ?? "+ Save"; }
             setTimeout(() => { isSaving = false; }, 500);
         }
     }
@@ -676,13 +676,13 @@
             if (currentDetailId) renderDetail(currentDetailId);
         });
 
-        // Liste: sélection + suppression (délégué unique)
+        // List: selection + deletion (single delegate)
         els.list.addEventListener("click", async (e) => {
             const delBtn = e.target.closest(".sess-del");
             if (delBtn) {
                 e.stopPropagation();
 
-                // ID de la carte sur laquelle on a cliqué
+                // ID of the card that was clicked
                 const li = delBtn.closest(".sess-item");
                 const clickedId = li?.getAttribute("data-id");
 
@@ -696,18 +696,18 @@
                 if (!ids.length) return;
 
                 const confirmMsg = ids.length > 1
-                    ? `Supprimer ${ids.length} sessions ?`
-                    : `Supprimer cette session ?`;
+                    ? `Delete ${ids.length} sessions?`
+                    : `Delete this session?`;
                 if (!confirm(confirmMsg)) return;
 
                 await Promise.allSettled(ids.map(deleteSessionById));
 
-                // Ménage dans la sélection et rafraîchit la liste
+                // Clean up selection and refresh list
                 const wasShowingDeleted = ids.includes(currentDetailId);
                 ids.forEach((id) => selectedIds.delete(id));
                 await renderList(els.search?.value || "", { preserveDetail: !wasShowingDeleted });
 
-                // Si on affichait le détail d’un item supprimé, on bascule proprement
+                // If we were showing the detail of a deleted item, switch cleanly
                 if (wasShowingDeleted) {
                     const firstSel = [...selectedIds][0];
                     if (firstSel) {
@@ -735,14 +735,14 @@
             else if (isCtrl) toggleSelect(id);
             else selectOnly(id);
 
-            // Ouvre le détail si 1 seul élément est sélectionné
+            // Open detail if only 1 element is selected
             if (selectedIds.size === 1) {
                 const only = [...selectedIds][0];
                 if (only !== currentDetailId) renderDetail(only);
             }
         });
 
-        // Clavier: Enter ouvre détail / Delete supprime sélection
+        // Keyboard: Enter opens detail / Delete removes selection
         els.list.addEventListener("keydown", async (e) => {
             if (e.key === "Enter") {
                 const li = e.target.closest(".sess-item");
@@ -753,7 +753,7 @@
             if (e.key === "Delete") {
                 const ids = [...selectedIds];
                 if (!ids.length) return;
-                if (!confirm(ids.length > 1 ? `Supprimer ${ids.length} sessions ?` : `Supprimer cette session ?`)) return;
+                if (!confirm(ids.length > 1 ? `Delete ${ids.length} sessions?` : `Delete this session?`)) return;
 
                 await Promise.allSettled(ids.map(deleteSessionById));
                 const wasShowingDeleted = ids.includes(currentDetailId);
@@ -778,24 +778,24 @@
             renderList(els.search.value, { preserveDetail: true });
         }, 200));
 
-        // Listeners de boutons (attachés une seule fois)
+        // Button listeners (attached once)
         els.saveBtn?.addEventListener("click", onSaveClickOnceGuarded);
         document.getElementById('btnShare')?.addEventListener('click', async () => {
             try {
                 const id = currentDetailId;
-                if (!id) { showToast("Aucune session sélectionnée ❌"); return; }
+                if (!id) { showToast("No session selected ❌"); return; }
                 const ok = await window.Share?.shareById(id, fetchSessionDetail, { sortBy: sortBy });
-                showToast(ok ? "Récap copié ✅" : "Copie impossible ❌");
+                showToast(ok ? "Summary copied ✅" : "Copy impossible ❌");
             } catch (e) {
                 console.error(e);
-                showToast("Erreur de partage ❌");
+                showToast("Sharing error ❌");
             }
         });
 
 
         els.closeBtn?.addEventListener("click", () => window.close());
 
-        // Auto-refresh sans perturber la vue
+        // Auto-refresh without disturbing the view
         const REFRESH_EVERY_MS = 5000;
         const tick = async () => {
             try { if (!document.hidden) await renderList(els.search?.value || "", { preserveDetail: true }); }
@@ -803,7 +803,7 @@
         };
         setTimeout(tick, REFRESH_EVERY_MS);
 
-        // Premier rendu
+        // First render
         renderList(els.search?.value || "", { preserveDetail: true });
     });
 })();
