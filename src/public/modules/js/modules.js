@@ -79,6 +79,20 @@
         }
     }
 
+    // Convert attribute value to level (1-6) based on thresholds
+    function getAttributeLevel(value) {
+        const thresholds = [1, 4, 8, 12, 16, 20];
+        let level = 0;
+        for (let i = 0; i < thresholds.length; i++) {
+            if (value >= thresholds[i]) {
+                level = i + 1;
+            } else {
+                break;
+            }
+        }
+        return level;
+    }
+
     // Display optimization results as cards
     function displayResults(solutions) {
         if (solutions.length === 0) {
@@ -130,9 +144,11 @@
                 .sort((a, b) => b[1] - a[1])
                 .map(([name, value]) => {
                     const isPriority = priorityAttrs.has(name);
+                    const level = getAttributeLevel(value);
                     return `<span class="attr-chip ${isPriority ? 'priority' : ''}">
                         <span class="attr-name">${name}</span>
                         <span class="attr-value">+${value}</span>
+                        <span class="attr-level">Lv.${level}</span>
                     </span>`;
                 })
                 .join('');
@@ -252,7 +268,7 @@
             elements.moduleCount.textContent = `Loaded ${modules.length} modules`;
             
             if (modules.length === 0) {
-                elements.footerInfo.textContent = 'No modules found. Waiting for game data...';
+                elements.footerInfo.textContent = 'No modules found. Waiting for game data... (Try entering your homestead or guild and reopen this window)';
                 buildAttributeFilters(modules);
                 // Set up periodic refresh to check for modules
                 if (!window.moduleRefreshInterval) {
@@ -353,7 +369,7 @@
             }
         });
 
-        elements.footerInfo.textContent = 'Waiting for module data...';
+        elements.footerInfo.textContent = 'Waiting for module data... (Try entering your homestead or guild and reopen this window)';
     }
 
     document.addEventListener('DOMContentLoaded', init);

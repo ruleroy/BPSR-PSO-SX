@@ -823,7 +823,7 @@
             // Get current user ID (first user in the list)
             const userIds = Object.keys(State.users);
             if (userIds.length === 0) {
-                alert('No user data available. Please wait for game data to load.');
+                alert('No user data available. Please wait for game data to load.\n(Try entering your homestead or guild and reopen this window)');
                 return;
             }
 
@@ -840,7 +840,7 @@
                 win = window.open(
                     url,
                     NAME,
-                    "popup,width=1400,height=900,menubar=0,toolbar=0,location=0,status=0,resizable=1"
+                    "popup,width=1200,height=900,menubar=0,toolbar=0,location=0,status=0,resizable=1"
                 );
                 if (watchdog) clearInterval(watchdog);
                 watchdog = setInterval(() => {

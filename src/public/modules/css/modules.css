@@ -119,7 +119,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--gap-4);
-    padding: var(--gap-3);
 }
 
 .solution-card {
@@ -154,7 +153,6 @@
 
 .solution-card:hover {
     border-color: var(--accent-dps);
-    transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--accent-dps);
 }
 
@@ -552,6 +550,25 @@
     color: var(--accent-dps);
     font-weight: 700;
     font-size: var(--fs-12);
+}
+
+.attr-level {
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    font-size: var(--fs-10);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin-left: 6px;
+    white-space: nowrap;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    letter-spacing: 0.3px;
+}
+
+.attr-chip.priority .attr-level {
+    background: rgba(99, 132, 255, 0.25);
+    border-color: rgba(99, 132, 255, 0.4);
+    color: rgba(255, 255, 255, 1);
 }
 
 /* ---------- Scrollbar ---------- */
