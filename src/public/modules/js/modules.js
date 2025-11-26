@@ -94,15 +94,25 @@
             
             // Build module items with full attributes
             const modulesHtml = sol.modules.map(m => {
-                const partsHtml = (m.parts || []).map(p => 
+                const parts = m.parts || [];
+                const partsHtml = parts.map(p => 
                     `<span class="module-part">${p.name}<span class="part-value">+${p.value}</span></span>`
                 ).join('');
+                
+                // Count attributes and determine class
+                const attrCount = parts.length;
+                let attrCountClass = 'attr-count-1'; // default to 1
+                if (attrCount >= 3) {
+                    attrCountClass = 'attr-count-3';
+                } else if (attrCount === 2) {
+                    attrCountClass = 'attr-count-2';
+                }
                 
                 const category = m.category || 'UNKNOWN';
                 const categoryIcon = category === 'ATTACK' ? '⚔️' : category === 'GUARDIAN' ? '🛡️' : category === 'SUPPORT' ? '💚' : '📦';
                 
                 return `
-                    <div class="card-module-item category-${category}">
+                    <div class="card-module-item ${attrCountClass}">
                         <div class="module-item-header">
                             <div class="module-item-title">
                                 <span class="module-category-icon">${categoryIcon}</span>
