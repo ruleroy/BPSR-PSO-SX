@@ -855,24 +855,38 @@
             try { window.electronAPI?.focusChildWindow?.(NAME); } catch { }
 
             // Send user ID to the module optimizer window
+            let messageSent = false;
             const sendUserId = () => {
-                if (!win || win.closed) return;
+                if (!win || win.closed || messageSent) return;
                 try {
                     win.postMessage({ type: 'module-optimize', userId: currentUserId }, '*');
-                } catch {
-                    setTimeout(sendUserId, 200);
+                    messageSent = true;
+                } catch (err) {
+                    // Retry if window isn't ready yet
+                    if (!messageSent) {
+                        setTimeout(sendUserId, 200);
+                    }
                 }
             };
 
             // Wait for window to be ready
-            window.addEventListener('message', (ev) => {
-                if (ev.data?.type === 'module-optimizer-ready' && ev.source === win) {
+            const messageHandler = (ev) => {
+                if (ev.data?.type === 'module-optimizer-ready' && ev.source === win && !messageSent) {
                     sendUserId();
+                    // Remove listener after successful send
+                    window.removeEventListener('message', messageHandler);
                 }
-            });
+            };
+            window.addEventListener('message', messageHandler);
 
-            // Fallback: send after a delay
+            // Fallback: send after delays (multiple attempts)
+            setTimeout(sendUserId, 100);
             setTimeout(sendUserId, 500);
+            setTimeout(sendUserId, 1000);
+            // Clean up listener after 2 seconds if still not sent
+            setTimeout(() => {
+                window.removeEventListener('message', messageHandler);
+            }, 2000);
         }
 
         return { open };

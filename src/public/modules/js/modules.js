@@ -82,24 +82,33 @@
     // Display optimization results as cards
     function displayResults(solutions) {
         if (solutions.length === 0) {
-            elements.resultsContainer.innerHTML = '<div class="solution-card"><p>No solutions found</p></div>';
+            elements.resultsContainer.innerHTML = '<div class="solution-card empty-state"><div class="empty-message"><p>No solutions found</p><p class="empty-hint">Try adjusting your filters or priority attributes</p></div></div>';
             return;
         }
 
         elements.resultsContainer.innerHTML = solutions.map((sol, idx) => {
             const rank = idx + 1;
+            const isTopThree = rank <= 3;
+            const rankClass = isTopThree ? `rank-${rank}` : '';
+            const medalEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
             
             // Build module items with full attributes
             const modulesHtml = sol.modules.map(m => {
                 const partsHtml = (m.parts || []).map(p => 
-                    `<span class="module-part">${p.name}+${p.value}</span>`
+                    `<span class="module-part">${p.name}<span class="part-value">+${p.value}</span></span>`
                 ).join('');
                 
+                const category = m.category || 'UNKNOWN';
+                const categoryIcon = category === 'ATTACK' ? '⚔️' : category === 'GUARDIAN' ? '🛡️' : category === 'SUPPORT' ? '💚' : '📦';
+                
                 return `
-                    <div class="card-module-item">
+                    <div class="card-module-item category-${category}">
                         <div class="module-item-header">
-                            <span class="module-item-name">${m.name || 'Unknown Module'}</span>
-                            <span class="module-item-quality">Quality ${m.quality || 0}</span>
+                            <div class="module-item-title">
+                                <span class="module-category-icon">${categoryIcon}</span>
+                                <span class="module-item-name">${m.name || 'Unknown Module'}</span>
+                            </div>
+                            <span class="module-item-quality quality-${m.quality || 0}">Q${m.quality || 0}</span>
                         </div>
                         <div class="module-item-parts">${partsHtml}</div>
                     </div>
@@ -111,37 +120,55 @@
                 .sort((a, b) => b[1] - a[1])
                 .map(([name, value]) => {
                     const isPriority = priorityAttrs.has(name);
-                    return `<span class="attr-chip ${isPriority ? 'priority' : ''}">${name}+${value}</span>`;
+                    return `<span class="attr-chip ${isPriority ? 'priority' : ''}">
+                        <span class="attr-name">${name}</span>
+                        <span class="attr-value">+${value}</span>
+                    </span>`;
                 })
                 .join('');
 
             return `
-                <div class="solution-card">
+                <div class="solution-card ${rankClass}">
                     <div class="card-header">
-                        <div class="card-rank">#${rank}</div>
+                        <div class="card-rank-badge ${rankClass}">
+                            ${medalEmoji ? `<span class="rank-medal">${medalEmoji}</span>` : ''}
+                            <span class="rank-number">#${rank}</span>
+                        </div>
                         <div class="card-stats">
                             <div class="card-stat">
-                                <span class="card-stat-label">Score</span>
-                                <span class="card-stat-value">${sol.score.toFixed(0)}</span>
+                                <span class="card-stat-icon">⭐</span>
+                                <div class="card-stat-content">
+                                    <span class="card-stat-label">Score</span>
+                                    <span class="card-stat-value">${sol.score.toFixed(0)}</span>
+                                </div>
                             </div>
                             <div class="card-stat">
-                                <span class="card-stat-label">Total Attr</span>
-                                <span class="card-stat-value">${sol.totalAttrValue || 0}</span>
+                                <span class="card-stat-icon">📊</span>
+                                <div class="card-stat-content">
+                                    <span class="card-stat-label">Total Attributes</span>
+                                    <span class="card-stat-value">${sol.totalAttrValue || 0}</span>
+                                </div>
                             </div>
                             <div class="card-stat">
-                                <span class="card-stat-label">Priority</span>
-                                <span class="card-stat-value">${sol.priorityLevel || 0}</span>
+                                <span class="card-stat-icon">🎯</span>
+                                <div class="card-stat-content">
+                                    <span class="card-stat-label">Priority</span>
+                                    <span class="card-stat-value">${sol.priorityLevel || 0}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="card-modules">
-                        ${modulesHtml}
-                    </div>
-                    
-                    <div class="card-attributes">
-                        <div class="attr-section-title">Attribute Breakdown</div>
-                        <div class="attr-list">${attrsHtml}</div>
+                    <div class="card-body">
+                        <div class="card-modules">
+                            <div class="card-section-label">Modules (${sol.modules.length})</div>
+                            ${modulesHtml}
+                        </div>
+                        
+                        <div class="card-attributes">
+                            <div class="card-section-label">Attribute Breakdown</div>
+                            <div class="attr-list">${attrsHtml}</div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -200,21 +227,81 @@
         });
     }
 
+    // Load modules for a user
+    async function loadModulesForUser(userId) {
+        if (!userId) {
+            elements.footerInfo.textContent = 'No user ID provided';
+            return;
+        }
+
+        elements.footerInfo.textContent = 'Loading modules...';
+        currentUserId = userId;
+        
+        try {
+            const modules = await fetchModules(currentUserId);
+            elements.moduleCount.textContent = `Loaded ${modules.length} modules`;
+            
+            if (modules.length === 0) {
+                elements.footerInfo.textContent = 'No modules found. Waiting for game data...';
+                buildAttributeFilters(modules);
+                // Set up periodic refresh to check for modules
+                if (!window.moduleRefreshInterval) {
+                    window.moduleRefreshInterval = setInterval(async () => {
+                        if (currentUserId) {
+                            const refreshedModules = await fetchModules(currentUserId);
+                            if (refreshedModules.length > 0) {
+                                clearInterval(window.moduleRefreshInterval);
+                                window.moduleRefreshInterval = null;
+                                elements.moduleCount.textContent = `Loaded ${refreshedModules.length} modules`;
+                                elements.footerInfo.textContent = `Ready - ${refreshedModules.length} modules available`;
+                                buildAttributeFilters(refreshedModules);
+                            }
+                        }
+                    }, 2000); // Check every 2 seconds
+                }
+            } else {
+                elements.footerInfo.textContent = `Ready - ${modules.length} modules available`;
+                buildAttributeFilters(modules);
+                // Clear any existing refresh interval
+                if (window.moduleRefreshInterval) {
+                    clearInterval(window.moduleRefreshInterval);
+                    window.moduleRefreshInterval = null;
+                }
+            }
+        } catch (error) {
+            console.error('[modules] Failed to load modules:', error);
+            elements.footerInfo.textContent = `Error loading modules: ${error.message}`;
+        }
+    }
+
     // Initialize
     async function init() {
+        let messageReceived = false;
+        let retryCount = 0;
+        const maxRetries = 10;
+
         // Get user ID from parent window or URL
         window.addEventListener('message', async (ev) => {
             if (ev.data?.type === 'module-optimize') {
-                currentUserId = ev.data.userId;
-                const modules = await fetchModules(currentUserId);
-                elements.moduleCount.textContent = `Loaded ${modules.length} modules`;
-                buildAttributeFilters(modules);
+                messageReceived = true;
+                await loadModulesForUser(ev.data.userId);
             }
         });
 
         // Request user ID from parent
         if (window.opener) {
+            // Send ready message immediately
             window.opener.postMessage({ type: 'module-optimizer-ready' }, '*');
+            
+            // Retry sending ready message if no response after a delay
+            const retryReady = setInterval(() => {
+                if (!messageReceived && retryCount < maxRetries) {
+                    window.opener.postMessage({ type: 'module-optimizer-ready' }, '*');
+                    retryCount++;
+                } else {
+                    clearInterval(retryReady);
+                }
+            }, 500);
         }
 
         // Category buttons
@@ -240,7 +327,20 @@
 
         // Close button
         elements.btnClose.addEventListener('click', () => {
+            // Clean up intervals
+            if (window.moduleRefreshInterval) {
+                clearInterval(window.moduleRefreshInterval);
+                window.moduleRefreshInterval = null;
+            }
             window.close();
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (window.moduleRefreshInterval) {
+                clearInterval(window.moduleRefreshInterval);
+                window.moduleRefreshInterval = null;
+            }
         });
 
         elements.footerInfo.textContent = 'Waiting for module data...';
