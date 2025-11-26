@@ -823,7 +823,7 @@
             // Get current user ID (first user in the list)
             const userIds = Object.keys(State.users);
             if (userIds.length === 0) {
-                alert('No user data available. Please wait for game data to load.');
+                alert('No user data available. Please wait for game data to load.\n(Try entering your homestead or guild and reopen this window)');
                 return;
             }
 
@@ -840,7 +840,7 @@
                 win = window.open(
                     url,
                     NAME,
-                    "popup,width=1400,height=900,menubar=0,toolbar=0,location=0,status=0,resizable=1"
+                    "popup,width=1200,height=900,menubar=0,toolbar=0,location=0,status=0,resizable=1"
                 );
                 if (watchdog) clearInterval(watchdog);
                 watchdog = setInterval(() => {
@@ -855,24 +855,38 @@
             try { window.electronAPI?.focusChildWindow?.(NAME); } catch { }
 
             // Send user ID to the module optimizer window
+            let messageSent = false;
             const sendUserId = () => {
-                if (!win || win.closed) return;
+                if (!win || win.closed || messageSent) return;
                 try {
                     win.postMessage({ type: 'module-optimize', userId: currentUserId }, '*');
-                } catch {
-                    setTimeout(sendUserId, 200);
+                    messageSent = true;
+                } catch (err) {
+                    // Retry if window isn't ready yet
+                    if (!messageSent) {
+                        setTimeout(sendUserId, 200);
+                    }
                 }
             };
 
             // Wait for window to be ready
-            window.addEventListener('message', (ev) => {
-                if (ev.data?.type === 'module-optimizer-ready' && ev.source === win) {
+            const messageHandler = (ev) => {
+                if (ev.data?.type === 'module-optimizer-ready' && ev.source === win && !messageSent) {
                     sendUserId();
+                    // Remove listener after successful send
+                    window.removeEventListener('message', messageHandler);
                 }
-            });
+            };
+            window.addEventListener('message', messageHandler);
 
-            // Fallback: send after a delay
+            // Fallback: send after delays (multiple attempts)
+            setTimeout(sendUserId, 100);
             setTimeout(sendUserId, 500);
+            setTimeout(sendUserId, 1000);
+            // Clean up listener after 2 seconds if still not sent
+            setTimeout(() => {
+                window.removeEventListener('message', messageHandler);
+            }, 2000);
         }
 
         return { open };
