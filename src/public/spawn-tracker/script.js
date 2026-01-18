@@ -210,6 +210,23 @@ function renderMonsterFilters() {
 }
 
 /**
+ * Calculates the age of a status update in minutes
+ * @param {Date|string|null|undefined} updateTimestamp - The timestamp to calculate age from
+ * @param {Date} now - Current date/time
+ * @returns {number|null} - Age in minutes, or null if no timestamp
+ */
+function getStatusAgeMinutes(updateTimestamp, now) {
+    if (!updateTimestamp) {
+        return null;
+    }
+    
+    const updateDate = updateTimestamp instanceof Date 
+        ? updateTimestamp 
+        : new Date(updateTimestamp);
+    return (now - updateDate) / 60000;
+}
+
+/**
  * Determines if a status entry is considered stale
  * @param {Object} status - Status descriptor object
  * @param {Date} now - Current date/time
@@ -221,10 +238,7 @@ function isStatusStale(status, now) {
         return status.lastHp !== undefined && status.lastHp !== null && status.lastHp > 0;
     }
     
-    const updateDate = status.updateTimestamp instanceof Date 
-        ? status.updateTimestamp 
-        : new Date(status.updateTimestamp);
-    const ageMinutes = (now - updateDate) / 60000;
+    const ageMinutes = getStatusAgeMinutes(status.updateTimestamp, now);
     
     // Stale if:
     // - Age > 15 minutes, OR
@@ -302,14 +316,10 @@ function renderSpawnList() {
                 // Filter out stale data: if status is > 30 minutes old and HP is not 0, exclude it
                 // (This prevents showing "alive" status for monsters that haven't been updated in a long time)
                 if (s.updateTimestamp) {
-                    // Ensure updateTimestamp is a Date object (it might be a string from JSON)
-                    const updateDate = s.updateTimestamp instanceof Date 
-                        ? s.updateTimestamp 
-                        : new Date(s.updateTimestamp);
-                    const ageMinutes = (now - updateDate) / 60000;
+                    const ageMinutes = getStatusAgeMinutes(s.updateTimestamp, now);
                     // Exclude stale "alive" data older than 30 minutes
                     // Keep dead status (HP = 0) even if old, as it's still valid information
-                    if (ageMinutes > 30 && s.lastHp !== 0) {
+                    if (ageMinutes !== null && ageMinutes > 30 && s.lastHp !== 0) {
                         return false; // Exclude stale "alive" data
                     }
                 } else if (s.lastHp !== 0) {
@@ -323,14 +333,8 @@ function renderSpawnList() {
                     return a.channelNumber - b.channelNumber;
                 }
                 // Sort by recency, dead last
-                const aUpdateDate = a.updateTimestamp 
-                    ? (a.updateTimestamp instanceof Date ? a.updateTimestamp : new Date(a.updateTimestamp))
-                    : null;
-                const bUpdateDate = b.updateTimestamp 
-                    ? (b.updateTimestamp instanceof Date ? b.updateTimestamp : new Date(b.updateTimestamp))
-                    : null;
-                const aAge = aUpdateDate ? (now - aUpdateDate) / 60000 : 999;
-                const bAge = bUpdateDate ? (now - bUpdateDate) / 60000 : 999;
+                const aAge = getStatusAgeMinutes(a.updateTimestamp, now) ?? 999;
+                const bAge = getStatusAgeMinutes(b.updateTimestamp, now) ?? 999;
                 if (aAge > 5 && a.lastHp !== 0) return 1;
                 if (bAge > 5 && b.lastHp !== 0) return -1;
                 if (a.lastHp === 0) return 1;
@@ -369,13 +373,13 @@ function createChannelItem(mob, status, now) {
     item.appendChild(channelNumber);
 
     const hp = status.lastHp;
-    // Ensure updateTimestamp is a Date object (it might be a string from JSON)
+    // Calculate age in minutes
+    const age = getStatusAgeMinutes(status.updateTimestamp, now) ?? 999;
     const updateDate = status.updateTimestamp 
         ? (status.updateTimestamp instanceof Date 
             ? status.updateTimestamp 
             : new Date(status.updateTimestamp))
         : null;
-    const age = updateDate ? (now - updateDate) / 60000 : 999;
     const isUnknown = age > 5 && hp !== 0;
     const isDead = hp === 0;
     // Use the reusable stale check function, but only show (?) if HP > 0
