@@ -102,7 +102,17 @@ async function startRealtime() {
 function updateState(data) {
     // JSON_OK spreads properties directly, so data.mobsDescriptors, not data.data.mobsDescriptors
     if (data && data.mobsDescriptors !== undefined) state.mobsDescriptors = data.mobsDescriptors || [];
-    if (data && data.statusDescriptors !== undefined) state.statusDescriptors = data.statusDescriptors || [];
+    if (data && data.statusDescriptors !== undefined) {
+        // Convert updateTimestamp strings to Date objects (JSON serialization converts Date to string)
+        state.statusDescriptors = (data.statusDescriptors || []).map(s => ({
+            ...s,
+            updateTimestamp: s.updateTimestamp 
+                ? (s.updateTimestamp instanceof Date 
+                    ? s.updateTimestamp 
+                    : new Date(s.updateTimestamp))
+                : null
+        }));
+    }
     if (data && data.bptimerRegions !== undefined) state.bptimerRegions = data.bptimerRegions || [];
     if (data && data.spawnDataLoaded !== undefined) state.spawnDataLoaded = data.spawnDataLoaded;
     if (data && data.spawnDataRealtimeConnection !== undefined) {
@@ -199,6 +209,34 @@ function renderMonsterFilters() {
     });
 }
 
+/**
+ * Determines if a status entry is considered stale
+ * @param {Object} status - Status descriptor object
+ * @param {Date} now - Current date/time
+ * @returns {boolean} - True if the status is stale
+ */
+function isStatusStale(status, now) {
+    if (!status.updateTimestamp) {
+        // No timestamp means stale if HP is not 0
+        return status.lastHp !== undefined && status.lastHp !== null && status.lastHp > 0;
+    }
+    
+    const updateDate = status.updateTimestamp instanceof Date 
+        ? status.updateTimestamp 
+        : new Date(status.updateTimestamp);
+    const ageMinutes = (now - updateDate) / 60000;
+    
+    // Stale if:
+    // - Age > 15 minutes, OR
+    // - Age > 5 minutes with HP > 0 (unknown), OR
+    // - HP is undefined/null/0
+    return ageMinutes > 15 || 
+           (ageMinutes > 5 && status.lastHp !== undefined && status.lastHp !== null && status.lastHp > 0) ||
+           status.lastHp === undefined || 
+           status.lastHp === null || 
+           status.lastHp === 0;
+}
+
 function renderSpawnList() {
     const container = document.getElementById('spawnList');
     container.innerHTML = '';
@@ -227,27 +265,72 @@ function renderSpawnList() {
         header.appendChild(name);
         name.appendChild(map);
 
-        if (mob.mobType === 'Boss') {
-            const respawn = document.createElement('div');
-            respawn.className = 'mob-respawn';
-            const { diff, pct } = timeUntilOccurrence(now, mob.mobRespawnTime);
-            respawn.textContent = `Respawn: ${String(diff.minutes).padStart(2, '0')}m ${String(diff.seconds).padStart(2, '0')}s`;
-            header.appendChild(respawn);
+        // Always show respawn time next to mob-map in header
+        // respawn_time is the minute of the hour (0 = :00, 30 = :30, etc.)
+        const respawn = document.createElement('span');
+        respawn.className = 'mob-respawn-time';
+        if (mob.mobRespawnTime !== undefined && mob.mobRespawnTime !== null) {
+            const { diff } = timeUntilOccurrence(now, mob.mobRespawnTime);
+            respawn.textContent = ` | Respawn: ${String(diff.minutes).padStart(2, '0')}m ${String(diff.seconds).padStart(2, '0')}s`;
+        } else {
+            respawn.textContent = ` | Respawn: Unknown`;
         }
+        name.appendChild(respawn);
 
         const channels = document.createElement('div');
         channels.className = 'mob-channels';
 
+        const orderByIndex = document.getElementById('orderByIndexCheck')?.checked || false;
+        const hideStale = document.getElementById('hideStaleCheck')?.checked || false;
+        
         const statuses = state.statusDescriptors
-            .filter(s => s.mobId === mob.mobId && s.region === regionName)
+            .filter(s => {
+                // Filter by mobId and region
+                if (s.mobId !== mob.mobId || s.region !== regionName) {
+                    return false;
+                }
+                // If "Order by Index" is checked, filter out dead and unknown statuses
+                if (orderByIndex) {
+                    if (s.lastHp === 0) {
+                        return false; // Filter out dead
+                    }
+                }
+                // If "Hide Stale" is checked, filter out stale channels
+                if (hideStale && isStatusStale(s, now)) {
+                    return false; // Filter out stale channels
+                }
+                // Filter out stale data: if status is > 30 minutes old and HP is not 0, exclude it
+                // (This prevents showing "alive" status for monsters that haven't been updated in a long time)
+                if (s.updateTimestamp) {
+                    // Ensure updateTimestamp is a Date object (it might be a string from JSON)
+                    const updateDate = s.updateTimestamp instanceof Date 
+                        ? s.updateTimestamp 
+                        : new Date(s.updateTimestamp);
+                    const ageMinutes = (now - updateDate) / 60000;
+                    // Exclude stale "alive" data older than 30 minutes
+                    // Keep dead status (HP = 0) even if old, as it's still valid information
+                    if (ageMinutes > 30 && s.lastHp !== 0) {
+                        return false; // Exclude stale "alive" data
+                    }
+                } else if (s.lastHp !== 0) {
+                    // If there's no timestamp but HP is not 0, exclude it (likely stale/invalid)
+                    return false;
+                }
+                return true;
+            })
             .sort((a, b) => {
-                const orderByIndex = document.getElementById('orderByIndexCheck')?.checked || false;
                 if (orderByIndex) {
                     return a.channelNumber - b.channelNumber;
                 }
                 // Sort by recency, dead last
-                const aAge = s.updateTimestamp ? (now - s.updateTimestamp) / 60000 : 999;
-                const bAge = b.updateTimestamp ? (now - b.updateTimestamp) / 60000 : 999;
+                const aUpdateDate = a.updateTimestamp 
+                    ? (a.updateTimestamp instanceof Date ? a.updateTimestamp : new Date(a.updateTimestamp))
+                    : null;
+                const bUpdateDate = b.updateTimestamp 
+                    ? (b.updateTimestamp instanceof Date ? b.updateTimestamp : new Date(b.updateTimestamp))
+                    : null;
+                const aAge = aUpdateDate ? (now - aUpdateDate) / 60000 : 999;
+                const bAge = bUpdateDate ? (now - bUpdateDate) / 60000 : 999;
                 if (aAge > 5 && a.lastHp !== 0) return 1;
                 if (bAge > 5 && b.lastHp !== 0) return -1;
                 if (a.lastHp === 0) return 1;
@@ -258,10 +341,17 @@ function renderSpawnList() {
         const limit = parseInt(document.getElementById('channelLimitSlider')?.value || 5);
         const displayStatuses = limit > 0 ? statuses.slice(0, limit) : statuses;
 
-        displayStatuses.forEach(status => {
-            const channelItem = createChannelItem(mob, status, now);
-            channels.appendChild(channelItem);
-        });
+        if (displayStatuses.length === 0) {
+            const noChannels = document.createElement('div');
+            noChannels.className = 'no-channels';
+            noChannels.textContent = 'No channel data available';
+            channels.appendChild(noChannels);
+        } else {
+            displayStatuses.forEach(status => {
+                const channelItem = createChannelItem(mob, status, now);
+                channels.appendChild(channelItem);
+            });
+        }
 
         group.appendChild(header);
         group.appendChild(channels);
@@ -272,24 +362,64 @@ function renderSpawnList() {
 function createChannelItem(mob, status, now) {
     const item = document.createElement('div');
     item.className = 'channel-item';
-    item.textContent = status.channelNumber;
+    
+    const channelNumber = document.createElement('span');
+    channelNumber.className = 'channel-number';
+    channelNumber.textContent = status.channelNumber;
+    item.appendChild(channelNumber);
 
     const hp = status.lastHp;
-    const age = status.updateTimestamp ? (now - status.updateTimestamp) / 60000 : 999;
+    // Ensure updateTimestamp is a Date object (it might be a string from JSON)
+    const updateDate = status.updateTimestamp 
+        ? (status.updateTimestamp instanceof Date 
+            ? status.updateTimestamp 
+            : new Date(status.updateTimestamp))
+        : null;
+    const age = updateDate ? (now - updateDate) / 60000 : 999;
     const isUnknown = age > 5 && hp !== 0;
     const isDead = hp === 0;
+    // Use the reusable stale check function, but only show (?) if HP > 0
+    const isStale = isStatusStale(status, now);
 
+    // Add (?) indicator for stale data (only when HP > 0)
+    if (isUnknown) {
+        const staleIndicator = document.createElement('span');
+        staleIndicator.className = 'stale-indicator';
+        staleIndicator.textContent = ' (?)';
+        staleIndicator.title = `Status data is ${Math.floor(age)} minutes old - may be outdated`;
+        channelNumber.appendChild(staleIndicator);
+    }
+
+    // Create progress bar
+    const progressBar = document.createElement('div');
+    progressBar.className = 'channel-progress-bar';
+    
+    // Calculate HP percentage for progress bar (0-100)
+    // Handle undefined/null HP values
+    const hpValue = (hp !== undefined && hp !== null) ? hp : 0;
+    const hpPercent = isDead ? 0 : (isUnknown ? 0 : hpValue);
+    progressBar.style.width = `${hpPercent}%`;
+    
+    // Set color based on HP
     if (isUnknown) {
         item.classList.add('unknown');
+        progressBar.classList.add('progress-unknown');
     } else if (isDead) {
         item.classList.add('dead');
+        progressBar.classList.add('progress-dead');
     } else if (hp < 20) {
         item.classList.add('critical', 'low');
+        progressBar.classList.add('progress-low');
     } else if (hp < 60) {
         item.classList.add('medium');
+        progressBar.classList.add('progress-medium');
     } else {
         item.classList.add('high');
+        progressBar.classList.add('progress-high');
     }
+    
+    item.appendChild(progressBar);
+
 
     item.oncontextmenu = (e) => {
         e.preventDefault();
@@ -307,14 +437,61 @@ function createChannelItem(mob, status, now) {
         }
     };
 
+    // Calculate time ago string
+    const getTimeAgo = (updateDate) => {
+        if (!updateDate) return 'Unknown';
+        const ageMs = now - updateDate;
+        const ageMinutes = Math.floor(ageMs / 60000);
+        const ageHours = Math.floor(ageMinutes / 60);
+        const ageDays = Math.floor(ageHours / 24);
+        
+        if (ageDays > 0) {
+            return `${ageDays} day${ageDays > 1 ? 's' : ''} ago`;
+        } else if (ageHours > 0) {
+            return `${ageHours} hour${ageHours > 1 ? 's' : ''} ago`;
+        } else if (ageMinutes > 0) {
+            return `${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
+        } else {
+            const ageSeconds = Math.floor(ageMs / 1000);
+            return `${ageSeconds} second${ageSeconds !== 1 ? 's' : ''} ago`;
+        }
+    };
+
     const tooltip = document.createElement('div');
     tooltip.className = 'channel-tooltip';
+    const updateDateStr = updateDate ? updateDate.toLocaleString() : '';
+    const timeAgo = getTimeAgo(updateDate);
+    
     if (isUnknown) {
-        tooltip.textContent = `Unknown\n${status.updateTimestamp?.toLocaleString() || ''}`;
+        tooltip.textContent = `Unknown\n${updateDateStr}\nReported: ${timeAgo}`;
     } else if (isDead) {
-        tooltip.textContent = `Dead\n${status.updateTimestamp?.toLocaleString() || ''}`;
+        let tooltipText = `Dead\n${updateDateStr}\nReported: ${timeAgo}`;
+        // respawn_time is the minute of the hour (0 = :00, 30 = :30, etc.)
+        if (mob.mobRespawnTime !== undefined && mob.mobRespawnTime !== null && updateDate) {
+            const deathTime = updateDate;
+            // Calculate next occurrence of respawn_time minute after death
+            const nextRespawn = new Date(deathTime);
+            nextRespawn.setMinutes(mob.mobRespawnTime, 0, 0);
+            if (nextRespawn <= deathTime) {
+                // If the respawn time has already passed today, move to next hour
+                nextRespawn.setHours(nextRespawn.getHours() + 1);
+            }
+            const timeUntilRespawn = Math.max(0, nextRespawn - now);
+            const minutes = Math.floor(timeUntilRespawn / 60000);
+            const seconds = Math.floor((timeUntilRespawn % 60000) / 1000);
+            if (timeUntilRespawn > 0) {
+                tooltipText += `\nRespawn in: ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+            }
+        }
+        tooltip.textContent = tooltipText;
     } else {
-        tooltip.textContent = `${hp}%\n${status.updateTimestamp?.toLocaleString() || ''}`;
+        // Handle undefined/null HP values
+        const hpDisplay = (hp !== undefined && hp !== null) ? `${hp}%` : 'Unknown HP';
+        let tooltipText = `${hpDisplay}\n${updateDateStr}\nReported: ${timeAgo}`;
+        if (isStale) {
+            tooltipText += `\n⚠ Data is ${Math.floor(age)} minutes old`;
+        }
+        tooltip.textContent = tooltipText;
     }
     item.appendChild(tooltip);
 
@@ -367,6 +544,10 @@ document.getElementById('selectNoneBtn').onclick = () => {
 };
 
 document.getElementById('orderByIndexCheck').onchange = () => {
+    renderSpawnList();
+};
+
+document.getElementById('hideStaleCheck').onchange = () => {
     renderSpawnList();
 };
 

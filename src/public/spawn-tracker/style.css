@@ -208,11 +208,25 @@ body {
     margin-top: 4px;
 }
 
+.mob-respawn-time {
+    font-size: 11px;
+    color: #858585;
+    margin-left: 4px;
+}
+
 .mob-channels {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     padding: 8px;
+    overflow: visible;
+}
+
+.no-channels {
+    font-size: 11px;
+    color: #858585;
+    font-style: italic;
+    padding: 4px 8px;
 }
 
 .channel-item {
@@ -228,21 +242,55 @@ body {
     font-size: 11px;
     cursor: pointer;
     transition: all 0.2s;
+    padding: 0;
+    overflow: visible;
+}
+
+.channel-number {
+    position: relative;
+    z-index: 2;
+    padding: 0 6px;
+    font-weight: 600;
+    color: #ffffff;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.8), 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+.stale-indicator {
+    color: #ffaa00;
+    font-weight: bold;
+    cursor: help;
+    pointer-events: auto;
+}
+
+.channel-progress-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    z-index: 1;
+}
+
+.channel-respawn {
+    font-size: 9px;
+    color: #999;
+    white-space: nowrap;
 }
 
 .channel-item:hover {
     border-color: #0e639c;
 }
 
-.channel-item.dead {
-    background: #5a5a5a;
+.channel-item.dead .channel-number {
     color: #999;
 }
 
 .channel-item.unknown {
-    background: #3a3a3a;
     border-color: #666;
-    opacity: 0.7;
+}
+
+.channel-item.unknown .channel-number {
+    color: #aaa;
 }
 
 .channel-item.critical {
@@ -250,21 +298,30 @@ body {
     border-width: 2px;
 }
 
-.channel-item.low {
+/* Progress bar colors */
+.channel-progress-bar.progress-dead {
+    background: #5a5a5a;
+}
+
+.channel-progress-bar.progress-unknown {
+    background: #3a3a3a;
+}
+
+.channel-progress-bar.progress-low {
     background: #ff8800;
 }
 
-.channel-item.medium {
+.channel-progress-bar.progress-medium {
     background: #ffaa00;
 }
 
-.channel-item.high {
+.channel-progress-bar.progress-high {
     background: #28b463;
 }
 
 .channel-tooltip {
     position: absolute;
-    bottom: 100%;
+    bottom: calc(100% + 4px);
     left: 50%;
     transform: translateX(-50%);
     background: #1e1e1e;
@@ -272,17 +329,22 @@ body {
     padding: 4px 8px;
     border-radius: 3px;
     font-size: 11px;
-    white-space: nowrap;
-    margin-bottom: 4px;
+    white-space: pre-line;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s;
-    z-index: 1000;
+    z-index: 10000;
     border: 1px solid #3e3e42;
+    min-width: 150px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    visibility: hidden;
 }
 
-.channel-item:hover .channel-tooltip {
+.channel-item:hover .channel-tooltip,
+.channel-item .channel-tooltip:hover {
     opacity: 1;
+    visibility: visible;
 }
 
 .progress-bar {
