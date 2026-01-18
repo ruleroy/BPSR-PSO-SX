@@ -248,13 +248,31 @@ const streamReadString = (reader) => {
  * =======================*/
 const INSTANCE_DEBOUNCE_MS = Number(process.env.INSTANCE_DEBOUNCE_MS ?? 0);
 
-// Tracker d’instance (séparé)
+// Tracker d'instance (séparé)
 const instanceTracker = new InstanceTracker({
     logger,
     userDataManager,
     debounceMs: INSTANCE_DEBOUNCE_MS,
     mapNamesPath: path.join(__dirname, '../tables/map_names.json'),
 });
+
+// BPTimer Manager (lazy-loaded)
+let bptimerManager = null;
+async function getBPTimerManager() {
+    if (!bptimerManager) {
+        try {
+            const { getSettingsManager } = await import('./SettingsManager.js');
+            const { getBPTimerManager: getBPTimer } = await import('./BPTimer/BPTimerManager.js');
+            const settingsManager = getSettingsManager(process.env.SETTINGS_PATH || './settings.json');
+            await settingsManager.init();
+            bptimerManager = getBPTimer(settingsManager, instanceTracker, userDataManager);
+            bptimerManager.initializeBindings();
+        } catch (error) {
+            logger.warn('[PacketProcessor] Failed to initialize BPTimer:', error);
+        }
+    }
+    return bptimerManager;
+}
 
 // Log d’autodiagnostic PB (une seule fois)
 if (!globalThis.__PB_KEYS_LOGGED__) {
@@ -697,6 +715,7 @@ export class PacketProcessor {
                 }
                 case AttrType.AttrId: {
                     const attrId = r.int32();
+                    userDataManager.enemyCache.attrId.set(enemyUid, attrId);
                     const name = monsterNames[attrId];
                     if (name) {
                         logger.info(`Found monster name ${name} for id ${enemyUid}`);
@@ -705,11 +724,23 @@ export class PacketProcessor {
                     break;
                 }
                 case AttrType.AttrHp: {
-                    userDataManager.enemyCache.hp.set(enemyUid, r.int32());
+                    const hp = r.int32();
+                    userDataManager.enemyCache.hp.set(enemyUid, hp);
+                    // Notify BPTimer of HP update
+                    const maxHp = userDataManager.enemyCache.maxHp.get(enemyUid) || 0;
+                    const attrId = userDataManager.enemyCache.attrId.get(enemyUid);
+                    if (attrId && maxHp > 0 && hp > 0) {
+                        getBPTimerManager().then(manager => {
+                            if (manager) {
+                                manager.onEntityHpUpdated(enemyUid, attrId, hp, maxHp);
+                            }
+                        }).catch(() => {});
+                    }
                     break;
                 }
                 case AttrType.AttrMaxHp: {
-                    userDataManager.enemyCache.maxHp.set(enemyUid, r.int32());
+                    const maxHp = r.int32();
+                    userDataManager.enemyCache.maxHp.set(enemyUid, maxHp);
                     break;
                 }
                 default: break;

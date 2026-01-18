@@ -34,6 +34,7 @@ class UserDataManager {
             name: new Map(),
             hp: new Map(),
             maxHp: new Map(),
+            attrId: new Map(), // Entity ID (AttrId) for BPTimer
         };
 
         // Auto-save des logs JSON

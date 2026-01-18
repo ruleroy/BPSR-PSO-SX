@@ -2,9 +2,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-    // fenêtres
+    // fenï¿½tres
     focusMainWindow: () => ipcRenderer.invoke('focus-main-window'),
     focusChildWindow: (nameHint) => ipcRenderer.invoke('focus-child-window', String(nameHint || '')),
+    openBPTimerWindow: () => ipcRenderer.invoke('open-bptimer-window'),
 
     // captures
     captureRect: (bounds) => ipcRenderer.invoke('capture-rect', bounds),

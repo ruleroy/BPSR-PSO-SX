@@ -112,6 +112,18 @@ safeHandle('focus-child-window', async (_evt, nameHint) => {
     }
 });
 
+safeHandle('open-bptimer-window', async () => {
+    try {
+        const spawnTrackerWindow = require('./client/SpawnTrackerWindow.js');
+        const win = spawnTrackerWindow.default || spawnTrackerWindow;
+        win.create();
+        return true;
+    } catch (e) {
+        console.error('[IPC open-bptimer-window] failed:', e);
+        return false;
+    }
+});
+
 
 /* -------------------- Bootstrap -------------------- */
 async function initialize() {

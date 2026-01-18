@@ -896,6 +896,18 @@
         document.getElementById("btnOpenModules")?.addEventListener("click", () => {
             ModulesOverlay.open();
         });
+
+        document.getElementById("btnOpenBPTimer")?.addEventListener("click", () => {
+            // Open BPTimer Spawn Tracker window via IPC
+            try {
+                window.electronAPI?.openBPTimerWindow?.();
+            } catch (error) {
+                console.error('Failed to open BPTimer window:', error);
+                // Fallback: open as regular window
+                window.open('./spawn-tracker/index.html', 'BPTimerSpawnTracker', 
+                    'popup,width=700,height=600,menubar=0,toolbar=0,location=0,status=0,resizable=1');
+            }
+        });
     });
 
 
