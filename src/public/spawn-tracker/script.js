@@ -12,6 +12,8 @@ let state = {
     spawnDataRealtimeConnection: 0,
     settings: null,
     collapseToContentOnly: false,
+    selectedCategory: 'all', // 'all' or 'magical-creatures'
+    monsterSearchQuery: '', // Search query for filtering monsters
 };
 
 const SpawnDataLoadStatus = {
@@ -176,13 +178,105 @@ function renderRegionSelector() {
     };
 }
 
+/**
+ * Determines which category a monster belongs to
+ * @param {Object} mob - Mob descriptor object
+ * @returns {string} - Category name: 'magical-creatures' or 'all'
+ */
+function getMonsterCategory(mob) {
+    const name = (mob.gameMobName || mob.mobName || '').toLowerCase();
+    if (name.includes('piglet') || name.includes('nabo')) {
+        return 'magical-creatures';
+    }
+    return 'all';
+}
+
 function renderMonsterFilters() {
     const container = document.getElementById('monsterFilters');
     container.innerHTML = '';
 
+    // Create category tabs
+    const tabsContainer = document.createElement('div');
+    tabsContainer.className = 'category-tabs';
+    
+    const bossesTab = document.createElement('button');
+    bossesTab.className = 'category-tab';
+    bossesTab.textContent = 'Bosses';
+    bossesTab.dataset.category = 'all';
+    if (state.selectedCategory === 'all') {
+        bossesTab.classList.add('active');
+    }
+    bossesTab.onclick = () => {
+        state.selectedCategory = 'all';
+        renderMonsterFilters();
+    };
+    
+    const magicalTab = document.createElement('button');
+    magicalTab.className = 'category-tab';
+    magicalTab.textContent = 'Magical Creatures';
+    magicalTab.dataset.category = 'magical-creatures';
+    if (state.selectedCategory === 'magical-creatures') {
+        magicalTab.classList.add('active');
+    }
+    magicalTab.onclick = () => {
+        state.selectedCategory = 'magical-creatures';
+        renderMonsterFilters();
+    };
+    
+    tabsContainer.appendChild(bossesTab);
+    tabsContainer.appendChild(magicalTab);
+    container.appendChild(tabsContainer);
+
+    // Create search input
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'monster-search-container';
+    
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'monster-search-input';
+    searchInput.placeholder = 'Search monsters...';
+    searchInput.value = state.monsterSearchQuery;
+    searchInput.oninput = (e) => {
+        state.monsterSearchQuery = e.target.value.toLowerCase().trim();
+        renderMonsterFilters();
+    };
+    
+    searchContainer.appendChild(searchInput);
+    container.appendChild(searchContainer);
+
+    // Create monsters container
+    const monstersContainer = document.createElement('div');
+    monstersContainer.className = 'monsters-list';
+    
     const regionName = state.bptimerRegions[state.selectedRegionIndex] || 'NA';
 
-    state.mobsDescriptors.forEach(mob => {
+    // Filter monsters by selected category and search query
+    const filteredMobs = state.mobsDescriptors.filter(mob => {
+        // First filter by category
+        let matchesCategory = false;
+        if (state.selectedCategory === 'all') {
+            // Bosses tab: exclude magical creatures (piglet and nabo)
+            matchesCategory = getMonsterCategory(mob) !== 'magical-creatures';
+        } else {
+            matchesCategory = getMonsterCategory(mob) === state.selectedCategory;
+        }
+        
+        if (!matchesCategory) {
+            return false;
+        }
+        
+        // Then filter by search query if present
+        if (state.monsterSearchQuery) {
+            const name = (mob.gameMobName || mob.mobName || '').toLowerCase();
+            const mapName = (mob.mobMapName || '').toLowerCase();
+            const searchLower = state.monsterSearchQuery.toLowerCase();
+            return name.includes(searchLower) || mapName.includes(searchLower);
+        }
+        
+        return true;
+    });
+
+    filteredMobs.forEach(mob => {
         const item = document.createElement('div');
         item.className = 'monster-filter-item';
 
@@ -205,8 +299,10 @@ function renderMonsterFilters() {
 
         item.appendChild(checkbox);
         item.appendChild(label);
-        container.appendChild(item);
+        monstersContainer.appendChild(item);
     });
+    
+    container.appendChild(monstersContainer);
 }
 
 /**
@@ -350,12 +446,17 @@ function renderSpawnList() {
         // respawn_time is the minute of the hour (0 = :00, 30 = :30, etc.)
         const respawn = document.createElement('span');
         respawn.className = 'mob-respawn-time';
+        respawn.textContent = formatRespawnCountdown(mob, now);
+        
+        // Change color to red if countdown is under 1 minute
         if (mob.mobRespawnTime !== undefined && mob.mobRespawnTime !== null) {
             const { diff } = timeUntilOccurrence(now, mob.mobRespawnTime);
-            respawn.textContent = ` | Respawn: ${String(diff.minutes).padStart(2, '0')}m ${String(diff.seconds).padStart(2, '0')}s`;
-        } else {
-            respawn.textContent = ` | Respawn: Unknown`;
+            const totalSeconds = diff.minutes * 60 + diff.seconds;
+            if (totalSeconds < 60) {
+                respawn.classList.add('respawn-urgent');
+            }
         }
+        
         name.appendChild(respawn);
 
         const channels = document.createElement('div');
@@ -683,13 +784,37 @@ function timeUntilOccurrence(currentDateTime, intervalMinutes) {
     };
 }
 
+/**
+ * Formats the respawn countdown text for display
+ * @param {Object} mob - Mob descriptor object with mobRespawnTime property
+ * @param {Date} now - Current date/time
+ * @returns {string} - Formatted respawn countdown text (e.g., " | Respawn: 05m 30s" or " | Respawn: Unknown")
+ */
+function formatRespawnCountdown(mob, now) {
+    if (mob.mobRespawnTime !== undefined && mob.mobRespawnTime !== null) {
+        const { diff } = timeUntilOccurrence(now, mob.mobRespawnTime);
+        return ` | Respawn: ${String(diff.minutes).padStart(2, '0')}m ${String(diff.seconds).padStart(2, '0')}s`;
+    } else {
+        return ` | Respawn: Unknown`;
+    }
+}
+
 // Event listeners
 document.getElementById('reconnectBtn').onclick = () => {
     fetchBPTimerData();
 };
 
 document.getElementById('selectAllBtn').onclick = () => {
-    state.mobsDescriptors.forEach(mob => {
+    // Only select monsters in the current category tab
+    const filteredMobs = state.mobsDescriptors.filter(mob => {
+        if (state.selectedCategory === 'all') {
+            // Bosses tab: exclude magical creatures (piglet and nabo)
+            return getMonsterCategory(mob) !== 'magical-creatures';
+        }
+        return getMonsterCategory(mob) === state.selectedCategory;
+    });
+    
+    filteredMobs.forEach(mob => {
         state.trackedMonsters[mob.mobId] = true;
     });
     saveSettings();
@@ -697,7 +822,16 @@ document.getElementById('selectAllBtn').onclick = () => {
 };
 
 document.getElementById('selectNoneBtn').onclick = () => {
-    state.mobsDescriptors.forEach(mob => {
+    // Only deselect monsters in the current category tab
+    const filteredMobs = state.mobsDescriptors.filter(mob => {
+        if (state.selectedCategory === 'all') {
+            // Bosses tab: exclude magical creatures (piglet and nabo)
+            return getMonsterCategory(mob) !== 'magical-creatures';
+        }
+        return getMonsterCategory(mob) === state.selectedCategory;
+    });
+    
+    filteredMobs.forEach(mob => {
         state.trackedMonsters[mob.mobId] = false;
     });
     saveSettings();
