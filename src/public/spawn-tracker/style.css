@@ -298,6 +298,11 @@ body {
     border-width: 2px;
 }
 
+.channel-item.assumed {
+    border-color: #4ec9b0;
+    border-width: 2px;
+}
+
 /* Progress bar colors */
 .channel-progress-bar.progress-dead {
     background: #5a5a5a;
