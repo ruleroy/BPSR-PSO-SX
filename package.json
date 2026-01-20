@@ -1,7 +1,7 @@
 {
     "name": "bpsr_pso_sx_rule",
     "productName": "BPSR PSO SX - Rule",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Blue Protocol: Star Resonance",
     "main": "src/index.js",
     "scripts": {
