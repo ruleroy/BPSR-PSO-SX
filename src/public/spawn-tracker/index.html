@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BPTimer Spawn Tracker</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="app">
+        <div class="menu-bar">
+            <span class="title">Spawn Tracker</span>
+            <div class="menu-actions">
+                <button id="reconnectBtn" class="icon-btn" title="Force Reconnect To BPTimer">🔄</button>
+                <button id="pinBtn" class="icon-btn" title="Pin Window As Top Most">📌</button>
+                <button id="collapseBtn" class="icon-btn" title="Collapse To Content Only">▼</button>
+            </div>
+        </div>
+
+        <div id="content" class="content">
+            <div id="loadingState" class="state-message">
+                <p>Please wait, requesting data from BPTimer...</p>
+            </div>
+
+            <div id="mainContent" class="main-content hidden">
+                <div class="controls-panel">
+                    <div class="filter-section">
+                        <label>Select Monsters To Track:</label>
+                        <div class="region-selector">
+                            <label>Region:</label>
+                            <select id="regionSelect"></select>
+                        </div>
+                    </div>
+                    <div id="monsterFilters" class="monster-filters"></div>
+                    <div class="filter-actions">
+                        <button id="selectAllBtn">Select All</button>
+                        <button id="selectNoneBtn">Select None</button>
+                        <label>
+                            <input type="checkbox" id="orderByIndexCheck" />
+                            Order by Index
+                        </label>
+                        <label>
+                            <input type="checkbox" id="hideStaleCheck" />
+                            Hide Stale
+                        </label>
+                        <label>
+                            Channels To Display:
+                            <input type="range" id="channelLimitSlider" min="0" max="15" value="5" />
+                            <span id="channelLimitValue">5</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="spawnList" class="spawn-list"></div>
+            </div>
+
+            <div id="errorState" class="state-message hidden">
+                <p>Error loading data from BPTimer. Click reconnect to retry.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+

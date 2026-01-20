@@ -2,14 +2,19 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-    // fenêtres
+    // fenï¿½tres
     focusMainWindow: () => ipcRenderer.invoke('focus-main-window'),
     focusChildWindow: (nameHint) => ipcRenderer.invoke('focus-child-window', String(nameHint || '')),
+    openBPTimerWindow: () => ipcRenderer.invoke('open-bptimer-window'),
 
     // captures
     captureRect: (bounds) => ipcRenderer.invoke('capture-rect', bounds),
     captureToClipboard: (bounds) => ipcRenderer.invoke('sessions-capture-to-clipboard', bounds),
     copyImageDataURL: (dataURL) => ipcRenderer.invoke('copy-image-dataurl', String(dataURL || '')),
+
+    // spawn tracker
+    spawnTrackerToggleTopMost: (topMost) => ipcRenderer.invoke('spawn-tracker-toggle-topmost', topMost),
+    spawnTrackerGetTopMost: () => ipcRenderer.invoke('spawn-tracker-get-topmost'),
 
     // autres
     closeClient: () => ipcRenderer.send('close-client'),

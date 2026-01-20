@@ -8,7 +8,7 @@
     let currentUserId = null;
     let availableAttrs = new Set();
     let currentCategory = 'ALL';
-    let currentSortMode = 'ByTotalAttr';
+    let currentSortMode = 'ByScore';
     let priorityAttrs = new Set();
     let desiredLevels = {};
 

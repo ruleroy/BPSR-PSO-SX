@@ -1,0 +1,46 @@
+{
+  "overlay": {
+    "backgroundOpacity": 1
+  },
+  "bptimer": {
+    "enabled": false,
+    "includeCharacterId": false,
+    "fieldBossHpReportsEnabled": false
+  },
+  "spawnTracker": {
+    "opacity": 100,
+    "textScale": 1,
+    "lineScale": 1,
+    "displayLineCountLimit": 5,
+    "selectedRegionIndex": 0,
+    "orderLinesByIndex": false,
+    "trackedMonsters": {
+      "oej5xgi3vn0quou": true,
+      "17bt1uqt4jqu31f": true,
+      "l7d35s6tkud8yu1": true,
+      "g1vqd4mkcexkii7": true,
+      "tmai6ri61xgjgfm": true,
+      "12wjt4qckzrgeb5": true,
+      "hk2kzve3817ojzm": true,
+      "ya0zazl883187xt": true,
+      "2uvine41k7qo3yv": true,
+      "47vqq6tbubquktl": true,
+      "15ymgq6cm1ujhib": true,
+      "w23p8uou661h2tb": true,
+      "68yze88qguf5nlp": true,
+      "9xaujjhmi5l0px6": true,
+      "hb0daopkzoodbv4": true,
+      "55k7g96sfq3ey49": true,
+      "3bw8w75ct4w1tjb": true,
+      "x9ls682xem020cr": true,
+      "c60g15hv8tpojd2": true,
+      "p1dmp4d6kgy9ts2": true
+    },
+    "windowPosition": null,
+    "windowSize": {
+      "width": 700,
+      "height": 600
+    },
+    "topMost": false
+  }
+}

@@ -408,6 +408,124 @@ export function createApiRouter(isPausedInit, SETTINGS_PATH, LOGS_DIR) {
         res.json(JSON_OK({ data: solutions }));
     }));
 
+    /* ------------------------ BPTimer Routes ----------------------- */
+    router.get('/bptimer/data', asyncHandler(async (req, res) => {
+        try {
+            const { getSettingsManager } = await import('../services/SettingsManager.js');
+            const { getBPTimerManager } = await import('../services/BPTimer/BPTimerManager.js');
+            const { InstanceTracker } = await import('../services/InstanceTracker.js');
+            
+            // Get or create managers
+            const settingsManager = getSettingsManager(SETTINGS_PATH);
+            await settingsManager.init();
+            
+            const instanceTracker = new InstanceTracker({
+                logger,
+                userDataManager,
+                debounceMs: 0,
+            });
+            
+            const bptimerManager = getBPTimerManager(settingsManager, instanceTracker, userDataManager);
+            
+            res.json(JSON_OK({
+                spawnDataLoaded: bptimerManager.spawnDataLoaded,
+                spawnDataRealtimeConnection: bptimerManager.spawnDataRealtimeConnection,
+                mobsDescriptors: bptimerManager.mobsDescriptors,
+                statusDescriptors: bptimerManager.statusDescriptors,
+                bptimerRegions: bptimerManager.bptimerRegions,
+            }));
+        } catch (error) {
+            logger.error('[API] BPTimer data error:', error);
+            res.json(JSON_ERR('Failed to get BPTimer data', { error: error.message }));
+        }
+    }));
+
+    router.post('/bptimer/fetch', asyncHandler(async (req, res) => {
+        try {
+            const { getSettingsManager } = await import('../services/SettingsManager.js');
+            const { getBPTimerManager } = await import('../services/BPTimer/BPTimerManager.js');
+            const { InstanceTracker } = await import('../services/InstanceTracker.js');
+            
+            const settingsManager = getSettingsManager(SETTINGS_PATH);
+            await settingsManager.init();
+            
+            const instanceTracker = new InstanceTracker({
+                logger,
+                userDataManager,
+                debounceMs: 0,
+            });
+            
+            const bptimerManager = getBPTimerManager(settingsManager, instanceTracker, userDataManager);
+            await bptimerManager.fetchAllMobs();
+            
+            res.json(JSON_OK({
+                spawnDataLoaded: bptimerManager.spawnDataLoaded,
+                mobsDescriptors: bptimerManager.mobsDescriptors,
+                statusDescriptors: bptimerManager.statusDescriptors,
+                bptimerRegions: bptimerManager.bptimerRegions,
+            }));
+        } catch (error) {
+            logger.error('[API] BPTimer fetch error:', error);
+            logger.error('[API] BPTimer fetch error stack:', error.stack);
+            res.json(JSON_ERR('Failed to fetch BPTimer data', { 
+                error: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            }));
+        }
+    }));
+
+    router.post('/bptimer/realtime/start', asyncHandler(async (req, res) => {
+        try {
+            const { regionIndex } = req.body;
+            const { getSettingsManager } = await import('../services/SettingsManager.js');
+            const { getBPTimerManager } = await import('../services/BPTimer/BPTimerManager.js');
+            const { InstanceTracker } = await import('../services/InstanceTracker.js');
+            
+            const settingsManager = getSettingsManager(SETTINGS_PATH);
+            await settingsManager.init();
+            
+            const instanceTracker = new InstanceTracker({
+                logger,
+                userDataManager,
+                debounceMs: 0,
+            });
+            
+            const bptimerManager = getBPTimerManager(settingsManager, instanceTracker, userDataManager);
+            bptimerManager.startRealtime(regionIndex || 0);
+            
+            res.json(JSON_OK({ success: true }));
+        } catch (error) {
+            logger.error('[API] BPTimer realtime start error:', error);
+            res.json(JSON_ERR('Failed to start realtime', { error: error.message }));
+        }
+    }));
+
+    router.post('/bptimer/report/dead', asyncHandler(async (req, res) => {
+        try {
+            const { monsterId, line } = req.body;
+            const { getSettingsManager } = await import('../services/SettingsManager.js');
+            const { getBPTimerManager } = await import('../services/BPTimer/BPTimerManager.js');
+            const { InstanceTracker } = await import('../services/InstanceTracker.js');
+            
+            const settingsManager = getSettingsManager(SETTINGS_PATH);
+            await settingsManager.init();
+            
+            const instanceTracker = new InstanceTracker({
+                logger,
+                userDataManager,
+                debounceMs: 0,
+            });
+            
+            const bptimerManager = getBPTimerManager(settingsManager, instanceTracker, userDataManager);
+            await bptimerManager.sendForceDeadReport(monsterId, line);
+            
+            res.json(JSON_OK({ success: true }));
+        } catch (error) {
+            logger.error('[API] BPTimer report dead error:', error);
+            res.json(JSON_ERR('Failed to report dead', { error: error.message }));
+        }
+    }));
+
     /* ------------------------ Middleware d'erreur JSON ----------------------- */
     // eslint-disable-next-line no-unused-vars
     router.use((err, _req, res, _next) => {

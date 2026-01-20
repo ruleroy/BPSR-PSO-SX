@@ -34,9 +34,9 @@ function getSubProfessionBySkillId(skillId) {
         case 1700820:
         case 1700825:
         case 1700827: return 'wildpack';
-        case 1419: return 'vanguard';
+        case 1419: return 'skyward';
         case 1405:
-        case 1418: return 'skyward';
+        case 1418: return 'vanguard';
         case 2405: return 'shield';
         case 2406: return 'recovery';
         case 199902: return 'earthfort';

@@ -112,6 +112,49 @@ safeHandle('focus-child-window', async (_evt, nameHint) => {
     }
 });
 
+safeHandle('open-bptimer-window', async () => {
+    try {
+        const spawnTrackerWindow = require('./client/SpawnTrackerWindow.js');
+        const win = spawnTrackerWindow.default || spawnTrackerWindow;
+        win.create();
+        return true;
+    } catch (e) {
+        console.error('[IPC open-bptimer-window] failed:', e);
+        return false;
+    }
+});
+
+safeHandle('spawn-tracker-toggle-topmost', async (_evt, topMost) => {
+    try {
+        const spawnTrackerWindow = require('./client/SpawnTrackerWindow.js');
+        const win = spawnTrackerWindow.default || spawnTrackerWindow;
+        const window = win.getWindow();
+        if (window && !window.isDestroyed()) {
+            window.setAlwaysOnTop(Boolean(topMost), 'normal');
+            return true;
+        }
+        return false;
+    } catch (e) {
+        console.error('[IPC spawn-tracker-toggle-topmost] failed:', e);
+        return false;
+    }
+});
+
+safeHandle('spawn-tracker-get-topmost', async () => {
+    try {
+        const spawnTrackerWindow = require('./client/SpawnTrackerWindow.js');
+        const win = spawnTrackerWindow.default || spawnTrackerWindow;
+        const window = win.getWindow();
+        if (window && !window.isDestroyed()) {
+            return window.isAlwaysOnTop();
+        }
+        return false;
+    } catch (e) {
+        console.error('[IPC spawn-tracker-get-topmost] failed:', e);
+        return false;
+    }
+});
+
 
 /* -------------------- Bootstrap -------------------- */
 async function initialize() {
