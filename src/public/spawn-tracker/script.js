@@ -462,6 +462,11 @@ function getAssumedRespawn(status, mob, now) {
         return monsterAssumedRespawn;
     }
     
+    // If updateTimestamp is null, this means no previous data exists - show assumed respawn
+    if (status.updateTimestamp === null || status.updateTimestamp === undefined) {
+        return monsterAssumedRespawn;
+    }
+    
     // Only apply to channels that were previously dead or unknown/stale
     const ageMinutes = getStatusAgeMinutes(status.updateTimestamp, now);
     const wasDead = status.lastHp === 0;
@@ -630,6 +635,7 @@ function renderSpawnList() {
                 
                 channelsToShow.slice(0, limit > 0 ? limit : channelsToShow.length).forEach(channelNumber => {
                     // Create a dummy status object for assumed respawn
+                    // updateTimestamp is null to indicate no previous data exists
                     const assumedStatus = {
                         mobId: mob.mobId,
                         channelNumber: channelNumber,
