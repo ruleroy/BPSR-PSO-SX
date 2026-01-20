@@ -13,7 +13,8 @@ let state = {
     settings: null,
     collapseToContentOnly: false,
     selectedCategory: 'all', // 'all' or 'magical-creatures'
-    monsterSearchQuery: '', // Search query for filtering monsters
+    monsterSearchQuery: '', // Search query for filtering monsters (lowercase for search)
+    monsterSearchDisplayValue: '', // Original search input value (preserves casing)
 };
 
 const SpawnDataLoadStatus = {
@@ -26,12 +27,43 @@ const SpawnDataLoadStatus = {
 
 async function loadSettings() {
     try {
-        const res = await fetch(`${API_BASE}/bptimer/settings`);
+        const res = await fetch(`${API_BASE}/settings`);
         const data = await res.json();
-        if (data.code === 0) {
-            state.settings = data.data;
-            state.selectedRegionIndex = data.data?.spawnTracker?.selectedRegionIndex || 0;
-            state.trackedMonsters = data.data?.spawnTracker?.trackedMonsters || {};
+        if (data.code === 0 && data.data) {
+            const spawnTracker = data.data.spawnTracker || {};
+            state.selectedRegionIndex = spawnTracker.selectedRegionIndex ?? 0;
+            state.trackedMonsters = spawnTracker.trackedMonsters || {};
+            
+            // Restore UI state
+            const orderByIndexCheck = document.getElementById('orderByIndexCheck');
+            if (orderByIndexCheck) {
+                orderByIndexCheck.checked = spawnTracker.orderByIndex ?? false;
+            }
+            
+            const hideStaleCheck = document.getElementById('hideStaleCheck');
+            if (hideStaleCheck) {
+                hideStaleCheck.checked = spawnTracker.hideStale ?? false;
+            }
+            
+            const channelLimitSlider = document.getElementById('channelLimitSlider');
+            const channelLimitValue = document.getElementById('channelLimitValue');
+            if (channelLimitSlider) {
+                const channelsToDisplay = spawnTracker.channelsToDisplay ?? 5;
+                channelLimitSlider.value = channelsToDisplay;
+                if (channelLimitValue) {
+                    channelLimitValue.textContent = channelsToDisplay === 0 ? 'All' : channelsToDisplay;
+                }
+            }
+            
+            // Restore collapse state
+            state.collapseToContentOnly = spawnTracker.collapseToContentOnly ?? false;
+            const content = document.getElementById('content');
+            if (content) {
+                const controlsPanel = content.querySelector('.controls-panel');
+                if (controlsPanel) {
+                    controlsPanel.style.display = state.collapseToContentOnly ? 'none' : 'block';
+                }
+            }
         }
     } catch (error) {
         console.error('[SpawnTracker] Failed to load settings:', error);
@@ -40,15 +72,38 @@ async function loadSettings() {
 
 async function saveSettings() {
     try {
-        await fetch(`${API_BASE}/bptimer/settings`, {
+        // Get current UI state
+        const orderByIndexCheck = document.getElementById('orderByIndexCheck');
+        const hideStaleCheck = document.getElementById('hideStaleCheck');
+        const channelLimitSlider = document.getElementById('channelLimitSlider');
+        
+        const orderByIndex = orderByIndexCheck ? orderByIndexCheck.checked : false;
+        const hideStale = hideStaleCheck ? hideStaleCheck.checked : false;
+        const channelsToDisplay = channelLimitSlider ? parseInt(channelLimitSlider.value) : 5;
+        
+        // Load current settings first to merge
+        const res = await fetch(`${API_BASE}/settings`);
+        const currentData = await res.json();
+        const currentSettings = (currentData.code === 0 && currentData.data) ? currentData.data : {};
+        
+        // Merge spawnTracker settings
+        const updatedSettings = {
+            ...currentSettings,
+            spawnTracker: {
+                ...(currentSettings.spawnTracker || {}),
+                selectedRegionIndex: state.selectedRegionIndex,
+                trackedMonsters: state.trackedMonsters,
+                orderByIndex: orderByIndex,
+                hideStale: hideStale,
+                channelsToDisplay: channelsToDisplay,
+                collapseToContentOnly: state.collapseToContentOnly,
+            },
+        };
+        
+        await fetch(`${API_BASE}/settings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                spawnTracker: {
-                    selectedRegionIndex: state.selectedRegionIndex,
-                    trackedMonsters: state.trackedMonsters,
-                },
-            }),
+            body: JSON.stringify(updatedSettings),
         });
     } catch (error) {
         console.error('[SpawnTracker] Failed to save settings:', error);
@@ -193,6 +248,14 @@ function getMonsterCategory(mob) {
 
 function renderMonsterFilters() {
     const container = document.getElementById('monsterFilters');
+    
+    // Preserve UI state before rebuilding
+    const monstersList = container.querySelector('.monsters-list');
+    const scrollPosition = monstersList ? monstersList.scrollTop : 0;
+    const existingSearchInput = container.querySelector('.monster-search-input');
+    const hadSearchFocus = existingSearchInput && document.activeElement === existingSearchInput;
+    const searchCursorPosition = hadSearchFocus && existingSearchInput ? existingSearchInput.selectionStart : null;
+    
     container.innerHTML = '';
 
     // Create category tabs
@@ -235,14 +298,30 @@ function renderMonsterFilters() {
     searchInput.type = 'text';
     searchInput.className = 'monster-search-input';
     searchInput.placeholder = 'Search monsters...';
-    searchInput.value = state.monsterSearchQuery;
+    searchInput.value = state.monsterSearchDisplayValue || state.monsterSearchQuery;
     searchInput.oninput = (e) => {
+        state.monsterSearchDisplayValue = e.target.value;
         state.monsterSearchQuery = e.target.value.toLowerCase().trim();
         renderMonsterFilters();
     };
     
     searchContainer.appendChild(searchInput);
     container.appendChild(searchContainer);
+    
+    // Restore focus if it was focused before
+    if (hadSearchFocus) {
+        // Use setTimeout to ensure the element is in the DOM
+        setTimeout(() => {
+            searchInput.focus();
+            // Restore cursor position if we have it, otherwise put it at the end
+            if (searchCursorPosition !== null && searchCursorPosition <= searchInput.value.length) {
+                searchInput.setSelectionRange(searchCursorPosition, searchCursorPosition);
+            } else {
+                const len = searchInput.value.length;
+                searchInput.setSelectionRange(len, len);
+            }
+        }, 0);
+    }
 
     // Create monsters container
     const monstersContainer = document.createElement('div');
@@ -303,6 +382,13 @@ function renderMonsterFilters() {
     });
     
     container.appendChild(monstersContainer);
+    
+    // Restore scroll position after a brief delay to ensure layout is complete
+    if (scrollPosition > 0) {
+        setTimeout(() => {
+            monstersContainer.scrollTop = scrollPosition;
+        }, 0);
+    }
 }
 
 /**
@@ -446,15 +532,27 @@ function renderSpawnList() {
         // respawn_time is the minute of the hour (0 = :00, 30 = :30, etc.)
         const respawn = document.createElement('span');
         respawn.className = 'mob-respawn-time';
-        respawn.textContent = formatRespawnCountdown(mob, now);
         
-        // Change color to red if countdown is under 1 minute
         if (mob.mobRespawnTime !== undefined && mob.mobRespawnTime !== null) {
+            // Store respawn time in data attribute for timer updates
+            respawn.dataset.respawnTime = mob.mobRespawnTime;
+            
             const { diff } = timeUntilOccurrence(now, mob.mobRespawnTime);
             const totalSeconds = diff.minutes * 60 + diff.seconds;
+            const countdownText = `${String(diff.minutes).padStart(2, '0')}m ${String(diff.seconds).padStart(2, '0')}s`;
+            
+            respawn.textContent = ' | Respawn: ';
+            
+            // Only make the countdown numbers red if under 1 minute
+            const countdownSpan = document.createElement('span');
+            countdownSpan.className = 'respawn-countdown';
+            countdownSpan.textContent = countdownText;
             if (totalSeconds < 60) {
-                respawn.classList.add('respawn-urgent');
+                countdownSpan.classList.add('respawn-urgent');
             }
+            respawn.appendChild(countdownSpan);
+        } else {
+            respawn.textContent = ' | Respawn: Unknown';
         }
         
         name.appendChild(respawn);
@@ -839,15 +937,18 @@ document.getElementById('selectNoneBtn').onclick = () => {
 };
 
 document.getElementById('orderByIndexCheck').onchange = () => {
+    saveSettings();
     renderSpawnList();
 };
 
 document.getElementById('hideStaleCheck').onchange = () => {
+    saveSettings();
     renderSpawnList();
 };
 
 document.getElementById('channelLimitSlider').oninput = (e) => {
     document.getElementById('channelLimitValue').textContent = e.target.value === '0' ? 'All' : e.target.value;
+    saveSettings();
     renderSpawnList();
 };
 
@@ -859,11 +960,43 @@ document.getElementById('collapseBtn').onclick = () => {
     } else {
         content.querySelector('.controls-panel').style.display = 'block';
     }
+    saveSettings();
 };
 
-document.getElementById('closeBtn').onclick = () => {
-    window.close();
-};
+/**
+ * Updates all respawn countdown timers without triggering a full re-render
+ */
+function updateRespawnCountdowns() {
+    const now = new Date();
+    const respawnElements = document.querySelectorAll('.mob-respawn-time[data-respawn-time]');
+    
+    respawnElements.forEach(respawn => {
+        const respawnTime = parseFloat(respawn.dataset.respawnTime);
+        if (respawnTime === undefined || respawnTime === null) {
+            return;
+        }
+        
+        const { diff } = timeUntilOccurrence(now, respawnTime);
+        const totalSeconds = diff.minutes * 60 + diff.seconds;
+        const countdownText = `${String(diff.minutes).padStart(2, '0')}m ${String(diff.seconds).padStart(2, '0')}s`;
+        
+        const countdownSpan = respawn.querySelector('.respawn-countdown');
+        if (countdownSpan) {
+            countdownSpan.textContent = countdownText;
+            // Update urgent class based on time remaining
+            if (totalSeconds < 60) {
+                countdownSpan.classList.add('respawn-urgent');
+            } else {
+                countdownSpan.classList.remove('respawn-urgent');
+            }
+        }
+    });
+}
+
+// Update countdown timers every 1 second
+setInterval(() => {
+    updateRespawnCountdowns();
+}, 1000);
 
 // Poll for updates
 setInterval(async () => {

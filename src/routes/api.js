@@ -526,49 +526,6 @@ export function createApiRouter(isPausedInit, SETTINGS_PATH, LOGS_DIR) {
         }
     }));
 
-    router.get('/bptimer/settings', asyncHandler(async (req, res) => {
-        try {
-            const { getSettingsManager } = await import('../services/SettingsManager.js');
-            const settingsManager = getSettingsManager(SETTINGS_PATH);
-            await settingsManager.init();
-            
-            res.json(JSON_OK({
-                bptimer: settingsManager.get('bptimer'),
-                spawnTracker: settingsManager.get('spawnTracker'),
-            }));
-        } catch (error) {
-            logger.error('[API] BPTimer settings error:', error);
-            res.json(JSON_ERR('Failed to get settings', { error: error.message }));
-        }
-    }));
-
-    router.post('/bptimer/settings', asyncHandler(async (req, res) => {
-        try {
-            const { bptimer, spawnTracker } = req.body;
-            const { getSettingsManager } = await import('../services/SettingsManager.js');
-            const settingsManager = getSettingsManager(SETTINGS_PATH);
-            await settingsManager.init();
-            
-            if (bptimer) {
-                Object.entries(bptimer).forEach(([key, value]) => {
-                    settingsManager.set(`bptimer.${key}`, value);
-                });
-            }
-            
-            if (spawnTracker) {
-                Object.entries(spawnTracker).forEach(([key, value]) => {
-                    settingsManager.set(`spawnTracker.${key}`, value);
-                });
-            }
-            
-            await settingsManager.save();
-            res.json(JSON_OK({ success: true }));
-        } catch (error) {
-            logger.error('[API] BPTimer settings save error:', error);
-            res.json(JSON_ERR('Failed to save settings', { error: error.message }));
-        }
-    }));
-
     /* ------------------------ Middleware d'erreur JSON ----------------------- */
     // eslint-disable-next-line no-unused-vars
     router.use((err, _req, res, _next) => {

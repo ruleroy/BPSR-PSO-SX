@@ -278,7 +278,7 @@ body {
     margin-left: 4px;
 }
 
-.mob-respawn-time.respawn-urgent {
+.mob-respawn-time .respawn-urgent {
     color: #ff0000;
 }
 
