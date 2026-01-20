@@ -403,9 +403,6 @@ body {
 
 .channel-tooltip {
     position: absolute;
-    bottom: calc(100% + 4px);
-    left: 50%;
-    transform: translateX(-50%);
     background: #1e1e1e;
     color: #d4d4d4;
     padding: 4px 8px;
@@ -421,8 +418,14 @@ body {
     text-align: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     visibility: hidden;
+    /* Default positioning (will be overridden by JavaScript for edge cases) */
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
 }
 
+/* Tooltip visibility is now handled by JavaScript for dynamic positioning */
+/* Keeping this as fallback for cases where JS might not run */
 .channel-item:hover .channel-tooltip,
 .channel-item .channel-tooltip:hover {
     opacity: 1;

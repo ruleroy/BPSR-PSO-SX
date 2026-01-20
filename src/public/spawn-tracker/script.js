@@ -862,6 +862,79 @@ function createChannelItem(mob, status, now) {
         }
         tooltip.textContent = tooltipText;
     }
+    
+    // Position tooltip dynamically to prevent clipping
+    const positionTooltip = () => {
+        // Force visibility to measure tooltip dimensions
+        tooltip.style.visibility = 'visible';
+        tooltip.style.opacity = '0';
+        
+        const itemRect = item.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const padding = 8; // Minimum distance from viewport edge
+        
+        // Reset positioning
+        tooltip.style.left = '';
+        tooltip.style.right = '';
+        tooltip.style.bottom = '';
+        tooltip.style.top = '';
+        tooltip.style.transform = '';
+        
+        // Calculate horizontal position
+        const itemCenterX = itemRect.left + itemRect.width / 2;
+        const tooltipHalfWidth = tooltipRect.width / 2;
+        const tooltipLeftEdge = itemCenterX - tooltipHalfWidth;
+        const tooltipRightEdge = itemCenterX + tooltipHalfWidth;
+        
+        if (tooltipLeftEdge < padding) {
+            // Too close to left edge - align to left of item
+            tooltip.style.left = '0';
+            tooltip.style.right = '';
+            tooltip.style.transform = 'none';
+        } else if (tooltipRightEdge > viewportWidth - padding) {
+            // Too close to right edge - align to right of item
+            tooltip.style.left = '';
+            tooltip.style.right = '0';
+            tooltip.style.transform = 'none';
+        } else {
+            // Center on item
+            tooltip.style.left = '50%';
+            tooltip.style.right = '';
+            tooltip.style.transform = 'translateX(-50%)';
+        }
+        
+        // Calculate vertical position (check if tooltip would be clipped on top)
+        const tooltipHeight = tooltipRect.height;
+        const spaceAbove = itemRect.top;
+        const spaceBelow = viewportHeight - itemRect.bottom;
+        
+        if (spaceAbove < tooltipHeight + padding && spaceBelow > tooltipHeight + padding) {
+            // Not enough space above, but enough below - position below item
+            tooltip.style.bottom = '';
+            tooltip.style.top = 'calc(100% + 4px)';
+        } else {
+            // Default: position above item
+            tooltip.style.bottom = 'calc(100% + 4px)';
+            tooltip.style.top = '';
+        }
+    };
+    
+    // Position tooltip on hover
+    item.addEventListener('mouseenter', () => {
+        positionTooltip();
+        // Show tooltip after positioning
+        requestAnimationFrame(() => {
+            tooltip.style.opacity = '1';
+        });
+    });
+    
+    item.addEventListener('mouseleave', () => {
+        tooltip.style.opacity = '0';
+        tooltip.style.visibility = 'hidden';
+    });
+    
     item.appendChild(tooltip);
 
     return item;
