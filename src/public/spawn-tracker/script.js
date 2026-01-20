@@ -65,6 +65,7 @@ async function loadSettings() {
                     controlsPanel.style.display = state.collapseToContentOnly ? 'none' : 'block';
                 }
             }
+            updateCollapseButtonIcon();
             
             // Restore topMost state
             state.topMost = spawnTracker.topMost ?? false;
@@ -91,6 +92,15 @@ function updatePinButtonUI() {
         } else {
             pinBtn.classList.remove('active');
         }
+    }
+}
+
+function updateCollapseButtonIcon() {
+    const collapseBtn = document.getElementById('collapseBtn');
+    if (collapseBtn) {
+        // ▼ when expanded (can collapse), ▲ when collapsed (can expand)
+        collapseBtn.textContent = state.collapseToContentOnly ? '▲' : '▼';
+        collapseBtn.title = state.collapseToContentOnly ? 'Expand Controls' : 'Collapse To Content Only';
     }
 }
 
@@ -1008,6 +1018,7 @@ document.getElementById('collapseBtn').onclick = () => {
     } else {
         content.querySelector('.controls-panel').style.display = 'block';
     }
+    updateCollapseButtonIcon();
     saveSettings();
 };
 
