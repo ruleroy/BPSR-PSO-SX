@@ -568,34 +568,37 @@ function renderSpawnList() {
         header.appendChild(name);
         name.appendChild(map);
 
-        // Always show respawn time next to mob-map in header
+        // Show respawn time next to mob-map in header (skip for magical creatures)
         // respawn_time is the minute of the hour (0 = :00, 30 = :30, etc.)
-        const respawn = document.createElement('span');
-        respawn.className = 'mob-respawn-time';
-        
-        if (mob.mobRespawnTime !== undefined && mob.mobRespawnTime !== null) {
-            // Store respawn time in data attribute for timer updates
-            respawn.dataset.respawnTime = mob.mobRespawnTime;
+        const isMagicalCreature = getMonsterCategory(mob) === 'magical-creatures';
+        if (!isMagicalCreature) {
+            const respawn = document.createElement('span');
+            respawn.className = 'mob-respawn-time';
             
-            const { diff } = timeUntilOccurrence(now, mob.mobRespawnTime);
-            const totalSeconds = diff.minutes * 60 + diff.seconds;
-            const countdownText = `${String(diff.minutes).padStart(2, '0')}m ${String(diff.seconds).padStart(2, '0')}s`;
-            
-            respawn.textContent = ' | Respawn: ';
-            
-            // Only make the countdown numbers red if under 1 minute
-            const countdownSpan = document.createElement('span');
-            countdownSpan.className = 'respawn-countdown';
-            countdownSpan.textContent = countdownText;
-            if (totalSeconds < 60) {
-                countdownSpan.classList.add('respawn-urgent');
+            if (mob.mobRespawnTime !== undefined && mob.mobRespawnTime !== null) {
+                // Store respawn time in data attribute for timer updates
+                respawn.dataset.respawnTime = mob.mobRespawnTime;
+                
+                const { diff } = timeUntilOccurrence(now, mob.mobRespawnTime);
+                const totalSeconds = diff.minutes * 60 + diff.seconds;
+                const countdownText = `${String(diff.minutes).padStart(2, '0')}m ${String(diff.seconds).padStart(2, '0')}s`;
+                
+                respawn.textContent = ' | Respawn: ';
+                
+                // Only make the countdown numbers red if under 1 minute
+                const countdownSpan = document.createElement('span');
+                countdownSpan.className = 'respawn-countdown';
+                countdownSpan.textContent = countdownText;
+                if (totalSeconds < 60) {
+                    countdownSpan.classList.add('respawn-urgent');
+                }
+                respawn.appendChild(countdownSpan);
+            } else {
+                respawn.textContent = ' | Respawn: Unknown';
             }
-            respawn.appendChild(countdownSpan);
-        } else {
-            respawn.textContent = ' | Respawn: Unknown';
+            
+            name.appendChild(respawn);
         }
-        
-        name.appendChild(respawn);
 
         const channels = document.createElement('div');
         channels.className = 'mob-channels';
