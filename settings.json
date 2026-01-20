@@ -1,4 +1,7 @@
 {
+  "overlay": {
+    "backgroundOpacity": 1
+  },
   "bptimer": {
     "enabled": false,
     "includeCharacterId": false,

@@ -219,6 +219,65 @@
         document.documentElement.style.setProperty("--main-bg-opacity", String(val));
     }
 
+    async function loadSettings() {
+        try {
+            const res = await fetch(`http://${CONFIG.SERVER_URL}/api/settings`);
+            const data = await res.json();
+            if (data.code === 0 && data.data) {
+                const overlay = data.data.overlay || {};
+                const backgroundOpacity = overlay.backgroundOpacity;
+                if (typeof backgroundOpacity === "number" && backgroundOpacity >= 0 && backgroundOpacity <= 1) {
+                    setBackgroundOpacity(backgroundOpacity);
+                    if (Dom.opacity) {
+                        Dom.opacity.value = String(backgroundOpacity);
+                    }
+                    return; // Successfully loaded, exit early
+                }
+            }
+            // If no saved value exists, use slider's default value
+            if (Dom.opacity) {
+                setBackgroundOpacity(Dom.opacity.value);
+            }
+        } catch (error) {
+            console.error("Failed to load settings:", error);
+            // Fallback to slider's default value on error
+            if (Dom.opacity) {
+                setBackgroundOpacity(Dom.opacity.value);
+            }
+        }
+    }
+
+    async function saveSettings() {
+        try {
+            // Get current opacity value
+            const currentOpacity = Dom.opacity ? Number(Dom.opacity.value) : 1;
+            const opacityValue = clamp(currentOpacity, 0, 1);
+
+            // Load current settings first to merge
+            const res = await fetch(`http://${CONFIG.SERVER_URL}/api/settings`);
+            const currentData = await res.json();
+            const currentSettings = (currentData.code === 0 && currentData.data) ? currentData.data : {};
+
+            // Merge overlay settings
+            const updatedSettings = {
+                ...currentSettings,
+                overlay: {
+                    ...(currentSettings.overlay || {}),
+                    backgroundOpacity: opacityValue,
+                },
+            };
+
+            // Save merged settings
+            await fetch(`http://${CONFIG.SERVER_URL}/api/settings`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedSettings),
+            });
+        } catch (error) {
+            console.error("Failed to save settings:", error);
+        }
+    }
+
     function setServerStatus(status /** "connected"|"disconnected"|"paused"|"reconnecting"|"cleared" */) {
         Dom.serverStatus.className = `status-indicator ${status}`;
     }
@@ -735,8 +794,13 @@
             });
         });
 
-        Dom.opacity.addEventListener("input", (e) => setBackgroundOpacity(e.target.value));
-        setBackgroundOpacity(Dom.opacity.value);
+        Dom.opacity.addEventListener("input", (e) => {
+            setBackgroundOpacity(e.target.value);
+            saveSettings();
+        });
+        
+        // Load settings on init (will set opacity from saved value if available)
+        loadSettings();
 
         // Electron passthrough
         window.electronAPI?.onTogglePassthrough?.((isIgnoring) => {
