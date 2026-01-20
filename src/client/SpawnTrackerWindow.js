@@ -30,7 +30,7 @@ class SpawnTrackerWindow {
         try {
             const settingsPath = this._getSettingsPath();
             if (!fs.existsSync(settingsPath)) {
-                return this.defaultConfig;
+                return { ...this.defaultConfig, topMost: false };
             }
             const settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
             const spawnTracker = settingsData.spawnTracker || {};
@@ -42,10 +42,11 @@ class SpawnTrackerWindow {
                 height: windowSize.height || this.defaultConfig.height,
                 x: windowPosition?.x !== undefined ? windowPosition.x : this.defaultConfig.x,
                 y: windowPosition?.y !== undefined ? windowPosition.y : this.defaultConfig.y,
+                topMost: spawnTracker.topMost ?? false,
             };
         } catch (error) {
             console.error('[SpawnTrackerWindow] Failed to load window config:', error);
-            return this.defaultConfig;
+            return { ...this.defaultConfig, topMost: false };
         }
     }
 
@@ -128,6 +129,11 @@ class SpawnTrackerWindow {
         });
 
         this._window.loadFile(htmlPath);
+
+        // Apply topMost state if configured
+        if (config.topMost) {
+            this._window.setAlwaysOnTop(true, 'normal');
+        }
 
         // Save window size and position when changed
         this._window.on('resized', () => {

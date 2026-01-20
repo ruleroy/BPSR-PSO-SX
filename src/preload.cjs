@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     captureToClipboard: (bounds) => ipcRenderer.invoke('sessions-capture-to-clipboard', bounds),
     copyImageDataURL: (dataURL) => ipcRenderer.invoke('copy-image-dataurl', String(dataURL || '')),
 
+    // spawn tracker
+    spawnTrackerToggleTopMost: (topMost) => ipcRenderer.invoke('spawn-tracker-toggle-topmost', topMost),
+    spawnTrackerGetTopMost: () => ipcRenderer.invoke('spawn-tracker-get-topmost'),
+
     // autres
     closeClient: () => ipcRenderer.send('close-client'),
     onTogglePassthrough: (callback) =>

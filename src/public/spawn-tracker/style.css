@@ -51,6 +51,15 @@ body {
     background: #3e3e42;
 }
 
+.icon-btn.active {
+    background: #007acc;
+    color: #ffffff;
+}
+
+.icon-btn.active:hover {
+    background: #005a9e;
+}
+
 .icon-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;

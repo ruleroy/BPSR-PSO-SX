@@ -12,6 +12,7 @@ let state = {
     spawnDataRealtimeConnection: 0,
     settings: null,
     collapseToContentOnly: false,
+    topMost: false,
     selectedCategory: 'all', // 'all' or 'magical-creatures'
     monsterSearchQuery: '', // Search query for filtering monsters (lowercase for search)
     monsterSearchDisplayValue: '', // Original search input value (preserves casing)
@@ -64,9 +65,32 @@ async function loadSettings() {
                     controlsPanel.style.display = state.collapseToContentOnly ? 'none' : 'block';
                 }
             }
+            
+            // Restore topMost state
+            state.topMost = spawnTracker.topMost ?? false;
+            if (window.electronAPI && window.electronAPI.spawnTrackerToggleTopMost) {
+                window.electronAPI.spawnTrackerToggleTopMost(state.topMost).then(() => {
+                    updatePinButtonUI();
+                }).catch(error => {
+                    console.error('[SpawnTracker] Failed to apply topMost state:', error);
+                });
+            } else {
+                updatePinButtonUI();
+            }
         }
     } catch (error) {
         console.error('[SpawnTracker] Failed to load settings:', error);
+    }
+}
+
+function updatePinButtonUI() {
+    const pinBtn = document.getElementById('pinBtn');
+    if (pinBtn) {
+        if (state.topMost) {
+            pinBtn.classList.add('active');
+        } else {
+            pinBtn.classList.remove('active');
+        }
     }
 }
 
@@ -97,6 +121,7 @@ async function saveSettings() {
                 hideStale: hideStale,
                 channelsToDisplay: channelsToDisplay,
                 collapseToContentOnly: state.collapseToContentOnly,
+                topMost: state.topMost,
             },
         };
         
@@ -906,6 +931,23 @@ function formatRespawnCountdown(mob, now) {
 // Event listeners
 document.getElementById('reconnectBtn').onclick = () => {
     fetchBPTimerData();
+};
+
+document.getElementById('pinBtn').onclick = async () => {
+    state.topMost = !state.topMost;
+    try {
+        if (window.electronAPI && window.electronAPI.spawnTrackerToggleTopMost) {
+            await window.electronAPI.spawnTrackerToggleTopMost(state.topMost);
+            updatePinButtonUI();
+            saveSettings();
+        } else {
+            console.error('[SpawnTracker] electronAPI not available');
+        }
+    } catch (error) {
+        console.error('[SpawnTracker] Failed to toggle topMost:', error);
+        // Revert state on error
+        state.topMost = !state.topMost;
+    }
 };
 
 document.getElementById('selectAllBtn').onclick = () => {
